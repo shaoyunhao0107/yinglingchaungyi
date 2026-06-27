@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}回收站 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🗑️ 回收站</h1>
+    <div class="page-subtitle">删除的作品保留 30 天，可随时恢复</div>
+  </div>
+  <a href="/library" class="btn btn-secondary">← 返回媒体库</a>
+</div>
+
+<div id="trash-list">
+  <div class="empty-state">
+    <h3>加载中…</h3>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+
+async function loadTrash() {
+  const resp = await fetch('/api/trash?page_size=100', {
+    headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+  });
+  if (resp.status === 401) { window.location.href = '/login'; return; }
+  const data = await resp.json();
+  render(data.items);
+}
+
+function render(items) {
+  const el = document.getElementById('trash-list');
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state">
+      <h3>回收站是空的</h3>
+      <p>删除的作品会出现在这里，30 天内可以恢复</p>
+      <a href="/library" class="btn btn-primary">返回媒体库</a>
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>预览</th><th>类型</th><th>删除时间</th><th>操作</th></tr></thead>
+      <tbody>
+        ${items.map(a => `
+          <tr>
+            <td><img src="${a.thumbnail_url || a.storage_url}" style="width:60px;height:60px;object-fit:cover;border-radius:6px"></td>
+            <td><span class="mono text-xs">${a.kind}</span></td>
+            <td class="text-xs text-tertiary">${formatDate(a.created_at)}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="restore(${a.id})">↩️ 恢复</button>
+              <button class="btn btn-danger btn-sm" onclick="purge(${a.id})" style="margin-left:6px">❌ 彻底删除</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return `${d.getMonth()+1}-${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+async function restore(id) {
+  const resp = await fetch(`/api/trash/${id}/restore`, {
+    method: 'POST', headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+  });
+  if (resp.ok) { loadTrash(); }
+  else { alert('恢复失败'); }
+}
+
+async function purge(id) {
+  if (!confirm('彻底删除将无法恢复。确定？')) return;
+  const resp = await fetch(`/api/trash/${id}/purge`, {
+    method: 'DELETE', headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+  });
+  if (resp.ok) { loadTrash(); }
+  else { alert('删除失败'); }
+}
+
+loadTrash();
+</script>
+{% endblock %}

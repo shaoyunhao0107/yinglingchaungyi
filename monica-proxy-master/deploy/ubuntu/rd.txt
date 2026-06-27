@@ -1,0 +1,47 @@
+四个文件都完整。done。
+
+---
+
+## Ubuntu 部署版本已就绪
+
+**位置：** `G:\AI\monica\monica-proxy-master\deploy\ubuntu\`
+
+| 文件 | 大小 | 用途 |
+|------|------|------|
+| `install.sh` | 3.5KB | 一键安装：自动装 Go、编译、注册 systemd、开机自启 |
+| `update.sh` | 1.8KB | 新增模型后重新编译部署 |
+| `cookie-refresh.sh` | 1.7KB | Cookie 失效时一键更新并重启 |
+| `README.md` | 4.4KB | 完整使用文档 |
+
+---
+
+### 新电脑 Ubuntu 上手三步
+
+```bash
+# 1. 把整个项目目录传过去（scp / git clone / 直接复制）
+scp -r G:/AI/monica/monica-proxy-master user@server:/opt/
+
+# 2. 一键安装
+cd /opt/monica-proxy-master/deploy/ubuntu
+chmod +x *.sh
+bash install.sh
+
+# 3. 填 Cookie 后启动
+sudo nano /opt/monica-proxy/config.yaml
+sudo systemctl start monica-proxy
+```
+
+---
+
+### 新模型对接（Ubuntu 上）
+
+```bash
+# 1. 改映射表
+nano /opt/monica-proxy-master/internal/types/monica.go
+# 在 modelToBotMap 追加一行
+
+# 2. 一键重编译部署
+bash /opt/monica-proxy-master/deploy/ubuntu/update.sh
+```
+
+脚本支持 amd64 和 arm64（Oracle Free Tier、树莓派等均可用）。

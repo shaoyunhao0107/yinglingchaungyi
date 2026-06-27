@@ -1,0 +1,139 @@
+// 续接 streamMonicaToAnthropicAPI 函数体
+// 此文件仅用于暂存，最终会合并到 anthropic.go
+
+/*
+		// 先尝试解析为 OpenAI stream chunk（choices[].delta）
+		var oaiChunk openaiStreamDelta
+		if json.Unmarshal(jsonBytes, &oaiChunk) == nil && len(oaiChunk.Choices) > 0 {
+			choice := oaiChunk.Choices[0]
+
+			// finish_reason
+			if choice.FinishReason != "" {
+				if choice.FinishReason == "tool_calls" {
+					stopReason = "tool_use"
+				} else if choice.FinishReason == "length" {
+					stopReason = "max_tokens"
+				}
+			}
+
+			// 文本 delta
+			if choice.Delta.Content != "" {
+				if err := openTextBlock(); err != nil {
+					return err
+				}
+				fullText += choice.Delta.Content
+				if err := writeAnthropicSSE(w, "content_block_delta", map[string]interface{}{
+					"type":  "content_block_delta",
+					"index": textBlockIndex,
+					"delta": map[string]interface{}{"type": "text_delta", "text": choice.Delta.Content},
+				}); err != nil {
+					return err
+				}
+				flush()
+			}
+
+			// tool_calls delta
+			for _, tc := range choice.Delta.ToolCalls {
+				idx := tc.Index
+				if _, exists := toolBlocks[idx]; !exists {
+					// 新 tool block 开始
+					blockIdx := nextBlockIndex
+					nextBlockIndex++
+					toolBlocks[idx] = &toolBlockState{index: blockIdx, id: tc.ID, name: tc.Function.Name}
+					stopReason = "tool_use"
+					if err := writeAnthropicSSE(w, "content_block_start", map[string]interface{}{
+						"type":  "content_block_start",
+						"index": blockIdx,
+						"content_block": map[string]interface{}{
+							"type":  "tool_use",
+							"id":    tc.ID,
+							"name":  tc.Function.Name,
+							"input": map[string]interface{}{},
+						},
+					}); err != nil {
+						return err
+					}
+					flush()
+				}
+				// input_json_delta
+				if tc.Function.Arguments != "" {
+					blockIdx := toolBlocks[idx].index
+					if err := writeAnthropicSSE(w, "content_block_delta", map[string]interface{}{
+						"type":  "content_block_delta",
+						"index": blockIdx,
+						"delta": map[string]interface{}{"type": "input_json_delta", "partial_json": tc.Function.Arguments},
+					}); err != nil {
+						return err
+					}
+					flush()
+				}
+			}
+			continue
+		}
+
+		// 降级：尝试 Monica 原生格式
+		var md monicaStreamData
+		if err := json.Unmarshal(jsonBytes, &md); err != nil {
+			continue
+		}
+		if md.Error != nil {
+			return fmt.Errorf("monica error %d: %s", md.Error.Code, md.Error.Msg)
+		}
+		if md.Text != "" {
+			if err := openTextBlock(); err != nil {
+				return err
+			}
+			fullText += md.Text
+			if err := writeAnthropicSSE(w, "content_block_delta", map[string]interface{}{
+				"type":  "content_block_delta",
+				"index": textBlockIndex,
+				"delta": map[string]interface{}{"type": "text_delta", "text": md.Text},
+			}); err != nil {
+				return err
+			}
+			flush()
+		}
+	}
+
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		return err
+	}
+
+	// 关闭所有 block
+	if textBlockOpened {
+		if err := writeAnthropicSSE(w, "content_block_stop", map[string]interface{}{
+			"type":  "content_block_stop",
+			"index": textBlockIndex,
+		}); err != nil {
+			return err
+		}
+	}
+	for _, tb := range toolBlocks {
+		if err := writeAnthropicSSE(w, "content_block_stop", map[string]interface{}{
+			"type":  "content_block_stop",
+			"index": tb.index,
+		}); err != nil {
+			return err
+		}
+	}
+
+	// message_delta (stop_reason)
+	if err := writeAnthropicSSE(w, "message_delta", map[string]interface{}{
+		"type": "message_delta",
+		"delta": map[string]interface{}{
+			"stop_reason":   stopReason,
+			"stop_sequence": nil,
+		},
+		"usage": map[string]interface{}{"output_tokens": 0},
+	}); err != nil {
+		return err
+	}
+
+	// message_stop
+	if err := writeAnthropicSSE(w, "message_stop", map[string]interface{}{"type": "message_stop"}); err != nil {
+		return err
+	}
+	flush()
+	return nil
+}
+*/

@@ -1,0 +1,61 @@
+{% extends "auth_base.html" %}
+
+{% block title %}登录 — 盈灵创意{% endblock %}
+{% block subtitle %}登录到盈灵创意{% endblock %}
+
+{% block form %}
+<form id="login-form" autocomplete="on">
+  <div class="form-field">
+    <label class="form-label">邮箱</label>
+    <input class="form-input" type="email" name="email" required autofocus
+           placeholder="you@example.com" autocomplete="email">
+  </div>
+  <div class="form-field">
+    <label class="form-label">密码</label>
+    <input class="form-input" type="password" name="password" required
+           placeholder="••••••••" autocomplete="current-password">
+  </div>
+  <button type="submit" class="btn btn-primary btn-block">登录</button>
+</form>
+{% endblock %}
+
+{% block footer %}
+还没有账号？ <a href="/register">立即注册</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('login-form');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(form);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({detail: '登录失败'}));
+      // Reload with error via simple inline render to avoid losing focus state
+      const card = document.querySelector('.auth-card');
+      let errBox = card.querySelector('.auth-error');
+      if (!errBox) {
+        errBox = document.createElement('div');
+        errBox.className = 'auth-error';
+        card.querySelector('.auth-subtitle').after(errBox);
+      }
+      errBox.textContent = err.detail || '登录失败';
+      return;
+    }
+    const data = await resp.json();
+    sessionStorage.setItem('jsa_access', data.access);
+    sessionStorage.setItem('jsa_user', JSON.stringify(data.user));
+    window.location.href = '/';
+  } catch (e) {
+    alert('网络错误：' + e.message);
+  }
+});
+</script>
+{% endblock %}

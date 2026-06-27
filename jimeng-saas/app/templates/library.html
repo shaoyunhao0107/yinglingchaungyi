@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}媒体库 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">媒体库</h1>
+    <div class="page-subtitle">你创作的所有作品</div>
+  </div>
+  <a href="/generate" class="btn btn-primary">✨ 新生成</a>
+</div>
+
+<div class="library-shell">
+  <aside class="folder-sidebar">
+    <h4>文件夹</h4>
+    <a href="/library" class="folder-item {% if not current_folder_id %}active{% endif %}">
+      <span>🗂️</span><span>全部</span>
+    </a>
+    {% for f in folders %}
+    <a href="/library?folder_id={{ f.id }}" class="folder-item {% if current_folder_id == f.id %}active{% endif %}">
+      <span>📁</span><span>{{ f.name }}</span>
+    </a>
+    {% endfor %}
+
+    {% if tags %}
+    <h4 style="margin-top:24px">标签</h4>
+    {% for t in tags %}
+    <a href="/library?tag_id={{ t.id }}" class="folder-item {% if current_tag_id == t.id %}active{% endif %}">
+      <span>🏷️</span><span>{{ t.name }}</span>
+    </a>
+    {% endfor %}
+    {% endif %}
+  </aside>
+
+  <div>
+    <!-- 工具栏 -->
+    <div id="filter-bar" class="filter-bar">
+      <input id="search-input" class="form-input" style="max-width:220px" placeholder="🔍 搜索提示词或标题…"
+             oninput="onSearchInput()">
+      <select id="sort-select" class="form-select" style="width:auto" onchange="reloadGallery()">
+        <option value="created_at-desc">最新优先</option>
+        <option value="created_at-asc">最旧优先</option>
+        <option value="title-asc">标题 A-Z</option>
+        <option value="title-desc">标题 Z-A</option>
+      </select>
+      <select id="kind-select" class="form-select" style="width:auto" onchange="reloadGallery()">
+        <option value="">全部类型</option>
+        <option value="image">仅图片</option>
+        <option value="video">仅视频</option>
+      </select>
+      <input id="after-date" type="date" class="form-input" style="width:auto" onchange="reloadGallery()" title="起始日期">
+      <span class="text-tertiary">~</span>
+      <input id="before-date" type="date" class="form-input" style="width:auto" onchange="reloadGallery()" title="结束日期">
+      <button class="chip" onclick="openFolderModal()">+ 文件夹</button>
+      <button class="chip" onclick="openTagModal()">+ 标签</button>
+      <a href="/trash" class="chip">🗑️ 回收站 <span id="trash-count" class="text-tertiary mono" style="margin-left:4px"></span></a>
+    </div>
+
+    <!-- 批量操作条 -->
+    <div id="bulk-bar" class="hidden" style="position:sticky;top:0;z-index:50;background:var(--bg-elevated);border:1px solid var(--accent-solid);border-radius:var(--radius-md);padding:8px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)">
+        全选
+      </label>
+      <span class="text-sm text-secondary">已选 <strong id="selected-count">0</strong> 项</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-danger btn-sm" onclick="batchDelete()">🗑️ 批量删除</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearSelection()">取消选择</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="select-mode-toggle" onchange="toggleSelectMode(this.checked)">
+      开启批量选择
+    </label>
+
+    <div id="gallery" class="gallery">
+      <div class="empty-state" style="columns-span:all">
+        <h3>加载中…</h3>
+      </div>
+    </div>
+    <div id="pager" class="flex gap-md mt-lg" style="justify-content:center;align-items:center;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<!-- New folder modal -->
+<div id="folder-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100" onclick="if(event.target===this)closeFolderModal()">
+  <div class="card" style="width:360px" onclick="event.stopPropagation()">
+    <h3>新建文件夹</h3>
+    <p>用于组织你的作品</p>
+    <div class="form-field">
+      <input id="folder-name" class="form-input" placeholder="如：公众号封面" onkeydown="if(event.key==='Enter')createFolder(); if(event.key==='Escape')closeFolderModal()">
+    </div>
+    <div class="flex gap-md" style="justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeFolderModal()">取消</button>
+      <button class="btn btn-primary" onclick="createFolder()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- New tag modal -->
+<div id="tag-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100" onclick="if(event.target===this)closeTagModal()">
+  <div class="card" style="width:360px" onclick="event.stopPropagation()">
+    <h3>新建标签</h3>
+    <p>用于跨文件夹筛选作品</p>
+    <div class="form-field">
+      <input id="tag-name" class="form-input" placeholder="如：电影感" onkeydown="if(event.key==='Enter')createTag(); if(event.key==='Escape')closeTagModal()">
+    </div>
+    <div class="flex gap-md" style="justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeTagModal()">取消</button>
+      <button class="btn btn-primary" onclick="createTag()">创建</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+const params = new URLSearchParams(window.location.search);
+const folderId = params.get('folder_id');
+const tagId = params.get('tag_id');
+let currentPage = 1;
+let totalPages = 1;
+let currentPageSize = 24;
+let searchQuery = '';
+let searchTimer = null;
+let selectedIds = new Set();
+let selectMode = false;
+
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  const v = document.getElementById('search-input').value;
+  searchTimer = setTimeout(() => {
+    searchQuery = v.trim();
+    loadPage(1);
+  }, 300);
+}
+
+function reloadGallery() {
+  loadPage(1);
+}
+
+function getParams(page) {
+  const q = new URLSearchParams();
+  q.set('page', page);
+  q.set('page_size', currentPageSize);
+  if (folderId) q.set('folder_id', folderId);
+  if (tagId) q.set('tag_id', tagId);
+  if (searchQuery) q.set('q', searchQuery);
+  // 排序
+  const sortVal = document.getElementById('sort-select')?.value || 'created_at-desc';
+  const [sort, order] = sortVal.split('-');
+  q.set('sort', sort);
+  q.set('order', order);
+  // 类型
+  const kindVal = document.getElementById('kind-select')?.value || '';
+  if (kindVal) q.set('kind', kindVal);
+  // 日期
+  const afterVal = document.getElementById('after-date')?.value || '';
+  const beforeVal = document.getElementById('before-date')?.value || '';
+  if (afterVal) q.set('after', afterVal);
+  if (beforeVal) q.set('before', beforeVal);
+  return q;
+}
+
+async function loadPage(page) {
+  currentPage = page;
+  const resp = await fetch('/api/artifacts?' + getParams(page), {
+    headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+  });
+  if (resp.status === 401) { window.location.href = '/login'; return; }
+  const data = await resp.json();
+  totalPages = data.pages;
+  renderGallery(data.items);
+  renderPager(data.page, data.pages, data.total);
+}
+
+function renderGallery(items) {
+  const el = document.getElementById('gallery');
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <h3>没有匹配的作品</h3>
+      <p>试试调整筛选条件，或去生成新的</p>
+      <a href="/generate" class="btn btn-primary">✨ 开始生成</a>
+    </div>`;
+    return;
+  }
+  el.innerHTML = items.map(a => {
+    const isVideo = a.kind === 'video';
+    const thumb = a.thumbnail_url;
+    let mediaHtml;
+    if (thumb) {
+      mediaHtml = `<img src="${thumb}" alt="${escapeHtml(a.title || '未命名')}" loading="lazy">`;
+    } else if (isVideo) {
+      mediaHtml = `<video src="${a.storage_url}" muted preload="none"></video><div class="play-icon"></div>`;
+    } else {
+      mediaHtml = `<img src="${a.storage_url}" alt="${escapeHtml(a.title || '未命名')}" loading="lazy">`;
+    }
+    const kindBadge = isVideo ? `<div class="gallery-kind-badge">🎬 VIDEO</div>` : '';
+    const checkbox = selectMode
+      ? `<input type="checkbox" class="art-checkbox" data-id="${a.id}" onchange="updateSelectedCount()"
+         style="position:absolute;top:8px;left:8px;width:18px;height:18px;z-index:3"
+         ${selectedIds.has(a.id) ? 'checked' : ''}>`
+      : '';
+    const clickHandler = selectMode
+      ? `onclick="toggleSelect(${a.id}); return false;"`
+      : '';
+    return `
+    <a class="gallery-card" href="/library/${a.id}" title="${escapeHtml(a.title || '点击查看')}" ${clickHandler}>
+      ${checkbox}
+      ${mediaHtml}
+      ${kindBadge}
+      <div class="gallery-overlay">
+        <div class="gallery-prompt">${escapeHtml(a.title || '未命名')}</div>
+        <div class="gallery-meta">${a.kind} · ${formatDate(a.created_at)}</div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function renderPager(page, pages, total) {
+  const el = document.getElementById('pager');
+  if (total === 0) { el.innerHTML = ''; return; }
+  let html = '';
+  // 总数信息
+  html += `<span class="text-sm text-tertiary mono">共 ${total} 件</span>`;
+  // 上一页
+  if (page > 1) html += `<button class="btn btn-secondary btn-sm" onclick="loadPage(${page-1})">←</button>`;
+  // 页码（最多显示 7 个）
+  let pStart = Math.max(1, page - 3);
+  let pEnd = Math.min(pages, pStart + 6);
+  pStart = Math.max(1, pEnd - 6);
+  if (pStart > 1) html += `<span class="text-tertiary">…</span>`;
+  for (let p = pStart; p <= pEnd; p++) {
+    html += `<button class="btn ${p===page?'btn-primary':'btn-secondary'} btn-sm" onclick="loadPage(${p})" style="min-width:36px">${p}</button>`;
+  }
+  if (pEnd < pages) html += `<span class="text-tertiary">…</span>`;
+  // 下一页
+  if (page < pages) html += `<button class="btn btn-secondary btn-sm" onclick="loadPage(${page+1})">→</button>`;
+  // 页大小选择
+  html += `<span class="text-tertiary">|</span><label class="text-xs text-tertiary">每页</label>`;
+  html += `<select class="form-select" style="width:auto;font-size:12px;padding:4px 8px" onchange="changePageSize(this.value)">`;
+  for (const s of [10, 20, 24, 30, 50, 100, 200, 300, 500, 1000]) {
+    html += `<option value="${s}" ${s===currentPageSize?'selected':''}>${s}</option>`;
+  }
+  html += `</select>`;
+  el.innerHTML = html;
+}
+
+function changePageSize(s) {
+  currentPageSize = parseInt(s, 10);
+  loadPage(1);
+}
+
+// ─── 批量选择 ────────────────────────────────────────────
+function toggleSelectMode(on) {
+  selectMode = on;
+  selectedIds.clear();
+  if (on) {
+    document.getElementById('bulk-bar').classList.remove('hidden');
+  } else {
+    document.getElementById('bulk-bar').classList.add('hidden');
+    document.getElementById('select-all').checked = false;
+  }
+  updateSelectedCount();
+  renderGallery(currentItems);
+}
+
+let currentItems = [];
+const _origRender = renderGallery;
+renderGallery = function(items) {
+  currentItems = items;
+  _origRender(items);
+};
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateSelectedCount();
+  renderGallery(currentItems);
+}
+
+function toggleSelectAll(on) {
+  if (on) {
+    for (const a of currentItems) selectedIds.add(a.id);
+  } else {
+    for (const a of currentItems) selectedIds.delete(a.id);
+  }
+  updateSelectedCount();
+  renderGallery(currentItems);
+}
+
+function updateSelectedCount() {
+  document.getElementById('selected-count').textContent = selectedIds.size;
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.getElementById('select-all').checked = false;
+  document.getElementById('select-mode-toggle').checked = false;
+  toggleSelectMode(false);
+}
+
+async function batchDelete() {
+  if (selectedIds.size === 0) { alert('请先选择作品'); return; }
+  const ids = Array.from(selectedIds);
+  if (!confirm(`确定将选中的 ${ids.length} 件作品移入回收站？`)) return;
+  const resp = await fetch('/api/artifacts/batch-delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+    body: JSON.stringify({ids}),
+  });
+  if (resp.ok) {
+    const d = await resp.json();
+    clearSelection();
+    loadPage(1);
+    loadTrashCount();
+    alert(`已将 ${d.deleted} 件作品移入回收站`);
+  } else {
+    alert('删除失败');
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────
+function escapeHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+function formatDate(iso) {
+  const d = new Date(iso);
+  return `${d.getMonth()+1}-${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+loadPage(1);
+
+// ─── Folder / Tag creation ────────────────────────────────
+function openFolderModal() { document.getElementById('folder-modal').classList.remove('hidden'); document.getElementById('folder-name').focus(); }
+function closeFolderModal() { document.getElementById('folder-modal').classList.add('hidden'); document.getElementById('folder-name').value = ''; }
+function openTagModal() { document.getElementById('tag-modal').classList.remove('hidden'); document.getElementById('tag-name').focus(); }
+function closeTagModal() { document.getElementById('tag-modal').classList.add('hidden'); document.getElementById('tag-name').value = ''; }
+
+async function createFolder() {
+  const name = document.getElementById('folder-name').value.trim();
+  if (!name) return;
+  const resp = await fetch('/api/folders', {
+    method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+    body: JSON.stringify({name}),
+  });
+  if (resp.ok) { window.location.reload(); } else { alert('创建失败'); }
+}
+
+async function createTag() {
+  const name = document.getElementById('tag-name').value.trim();
+  if (!name) return;
+  const resp = await fetch('/api/tags', {
+    method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+    body: JSON.stringify({name}),
+  });
+  if (resp.ok) { window.location.reload(); } else { alert('创建失败'); }
+}
+
+// ─── Trash count badge ────────────────────────────────────
+async function loadTrashCount() {
+  try {
+    const resp = await fetch('/api/trash?page_size=1', {
+      headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+    });
+    if (resp.ok) {
+      const d = await resp.json();
+      const el = document.getElementById('trash-count');
+      if (d.total > 0) el.textContent = `(${d.total})`;
+    }
+  } catch {}
+}
+loadTrashCount();
+loadTrashCount();
+</script>
+{% endblock %}

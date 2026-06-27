@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill:*)",
+      "Bash(go run:*)",
+      "PowerShell(node -v; npm -v; \\(Get-Command node\\).Source)"
+    ]
+  }
+}

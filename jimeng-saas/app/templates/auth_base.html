@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}登录 — 盈灵创意{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <span>盈灵创意</span>
+    </div>
+    <div class="auth-subtitle">{% block subtitle %}登录到盈灵创意{% endblock %}</div>
+
+    {% if err %}
+    <div class="auth-error">{{ err }}</div>
+    {% endif %}
+
+    {% block form %}{% endblock %}
+
+    <div class="auth-footer">
+      {% block footer %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

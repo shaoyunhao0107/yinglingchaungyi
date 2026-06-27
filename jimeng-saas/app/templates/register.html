@@ -1,0 +1,65 @@
+{% extends "auth_base.html" %}
+
+{% block title %}注册 — 盈灵创意{% endblock %}
+{% block subtitle %}创建你的盈灵创意账号{% endblock %}
+
+{% block form %}
+<form id="register-form" autocomplete="on">
+  <div class="form-field">
+    <label class="form-label">用户名</label>
+    <input class="form-input" type="text" name="name" required
+           placeholder="你的名字" autocomplete="name">
+  </div>
+  <div class="form-field">
+    <label class="form-label">邮箱</label>
+    <input class="form-input" type="email" name="email" required
+           placeholder="you@example.com" autocomplete="email">
+  </div>
+  <div class="form-field">
+    <label class="form-label">密码（至少 8 位）</label>
+    <input class="form-input" type="password" name="password" required minlength="8"
+           placeholder="••••••••" autocomplete="new-password">
+  </div>
+  <button type="submit" class="btn btn-primary btn-block">创建账号</button>
+</form>
+{% endblock %}
+
+{% block footer %}
+已有账号？ <a href="/login">直接登录</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('register-form');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(form);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    const resp = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({detail: '注册失败'}));
+      const card = document.querySelector('.auth-card');
+      let errBox = card.querySelector('.auth-error');
+      if (!errBox) {
+        errBox = document.createElement('div');
+        errBox.className = 'auth-error';
+        card.querySelector('.auth-subtitle').after(errBox);
+      }
+      errBox.textContent = err.detail || '注册失败';
+      return;
+    }
+    const data = await resp.json();
+    sessionStorage.setItem('jsa_access', data.access);
+    sessionStorage.setItem('jsa_user', JSON.stringify(data.user));
+    window.location.href = '/';
+  } catch (e) {
+    alert('网络错误：' + e.message);
+  }
+});
+</script>
+{% endblock %}

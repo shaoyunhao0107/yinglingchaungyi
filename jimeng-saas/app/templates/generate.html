@@ -1,0 +1,602 @@
+{% extends "base.html" %}
+{% block title %}生成 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">生成画布</h1>
+    <div class="page-subtitle">每行一个提示词，自动批量生成。AI 创意工作站。</div>
+  </div>
+  <div class="quota-pill">本月剩余 <span class="num">{{ quota_remaining }}</span> credits</div>
+</div>
+
+<div class="canvas-grid" x-data="generateCanvas()" x-init="init()">
+  <div>
+    <!-- Mode tabs -->
+    <div class="flex gap-sm mb-md">
+      <button class="btn btn-sm" :class="mode==='image' ? 'btn-primary' : 'btn-secondary'" @click="switchMode('image')">
+        🖼️ 图片 <span class="text-xs" style="opacity:0.7">(1 credit/批)</span>
+      </button>
+      <button class="btn btn-sm" :class="mode==='video' ? 'btn-primary' : 'btn-secondary'" @click="switchMode('video')">
+        🎬 视频 <span class="text-xs" style="opacity:0.7">(5 credits/个)</span>
+      </button>
+    </div>
+
+    <!-- Prompt entry -->
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:16px">
+      <div class="flex-between mb-md">
+        <label class="param-label" style="margin:0">
+          提示词（<span x-text="mode==='image' ? '每行一条' : '逐个提交'"></span>）
+        </label>
+        <div class="flex gap-sm">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+            📋 上传 CSV
+            <input type="file" accept=".csv,text/csv" @change="uploadCsv($event)" style="display:none">
+          </label>
+          <button class="btn btn-ghost btn-sm" @click="prompts = ''; countPrompts()" x-show="promptCount > 0">清空</button>
+        </div>
+      </div>
+      <textarea
+        class="prompt-input-large"
+        x-model="prompts"
+        @input="countPrompts()"
+        :placeholder="mode==='video'
+          ? '一只奔跑的狮子，草原日落，电影感镜头'
+          : '&quot;夜幕下的城市天际线，电影感，霓虹光，雨水倒影&quot;\n&quot;清晨山间雾气，水墨风格，留白&quot;\n&quot;未来太空站内部，硬科幻，体积光&quot;'"></textarea>
+      <div class="flex-between mt-md">
+        <div class="text-xs text-tertiary">
+          <template x-if="mode==='image'">
+            <span>总计 <span class="mono" x-text="promptCount * 4"></span> 张 · 消耗 <span class="mono" x-text="promptCount"></span> credits</span>
+          </template>
+          <template x-if="mode==='video'">
+            <span>总计 <span class="mono" x-text="promptCount"></span> 个视频 · 消耗 <span class="mono" x-text="promptCount * 5"></span> credits</span>
+          </template>
+        </div>
+        <button class="gen-btn" @click="submit()" :disabled="submitting || promptCount === 0"
+                :title="promptCount === 0 ? '请先输入提示词' : '点击提交，可连续多次提交'">
+          <span x-show="!submitting" class="gen-btn-inner">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" style="flex-shrink:0;opacity:0.8">
+              <path d="M8 1L10 6L15 8L10 10L8 15L6 10L1 8L6 6Z" fill="rgba(251,191,36,0.15)"/>
+            </svg>
+            <span x-text="mode==='video' ? '生成视频' : '生成图片'"></span>
+            <span class="gen-btn-count" x-show="promptCount > 0">
+              <span x-text="promptCount"></span> · <span x-text="mode==='video' ? promptCount * 5 : promptCount"></span> credits
+            </span>
+          </span>
+          <span x-show="submitting" class="gen-btn-loading">
+            <svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            提交中…
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live results -->
+    <div class="mt-lg" x-show="jobs.length > 0">
+      <div class="flex-between mb-md">
+        <h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700">实时结果</h3>
+        <div class="flex gap-sm text-xs">
+          <span class="status-pill status-queued" x-show="jobs.filter(j => j.status==='queued').length > 0"
+                x-text="'排队 ' + jobs.filter(j => j.status==='queued').length"></span>
+          <span class="status-pill status-running" x-show="jobs.filter(j => j.status==='running').length > 0"
+                x-text="'生成中 ' + jobs.filter(j => j.status==='running').length"></span>
+          <span class="status-pill status-done" x-show="jobs.filter(j => j.status==='succeeded').length > 0"
+                x-text="'完成 ' + jobs.filter(j => j.status==='succeeded').length"></span>
+          <span class="status-pill status-failed" x-show="jobs.filter(j => j.status==='failed').length > 0"
+                x-text="'失败 ' + jobs.filter(j => j.status==='failed').length"></span>
+        </div>
+      </div>
+      <template x-for="job in jobs" :key="job.id">
+        <div class="card mb-md" style="padding:14px">
+          <div class="flex-between mb-md">
+            <div style="flex:1;min-width:0">
+              <div class="text-sm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="job.prompt"></div>
+              <div class="text-xs text-tertiary mono" style="margin-top:4px" x-text="jobLabel(job)"></div>
+            </div>
+            <span class="status-pill" :class="'status-' + job.status" x-text="statusLabel(job.status)"></span>
+          </div>
+          <!-- progress bar for running/queued -->
+          <div class="progress mb-md" x-show="job.status === 'running' || job.status === 'queued'"
+               style="margin-bottom:8px">
+            <div class="progress-bar" :style="`width: ${progressPct(job)}%`"></div>
+          </div>
+          <!-- results grid -->
+          <div class="results-grid" x-show="job.artifacts && job.artifacts.length > 0" style="margin-top:12px">
+            <template x-for="art in job.artifacts" :key="art.id">
+              <a :href="'/library/' + art.id" class="result-card reveal">
+                <!-- video badge overlay -->
+                <template x-if="job.type === 'video'">
+                  <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;z-index:2">🎬 VIDEO</div>
+                </template>
+                <template x-if="art.thumbnail_url">
+                  <img :src="art.thumbnail_url" :alt="job.prompt" loading="lazy">
+                </template>
+                <template x-if="!art.thumbnail_url && job.type === 'video'">
+                  <video :src="art.storage_url" muted preload="metadata"></video>
+                </template>
+                <template x-if="!art.thumbnail_url && job.type !== 'video'">
+                  <img :src="art.storage_url" :alt="job.prompt" loading="lazy">
+                </template>
+              </a>
+            </template>
+          </div>
+          <div class="text-xs mt-md" x-show="job.error_message" style="margin-top:8px;color:var(--error)">
+            <span x-text="job.error_message"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Params rail -->
+  <div class="params-rail">
+    <template x-if="mode==='image'">
+    <div>
+      <div class="param-row">
+        <div class="param-label">模型</div>
+        <select class="form-select" x-model="imageParams.model">
+          {% for m in image_models %}
+          <option value="{{ m.id }}">{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="param-row">
+        <div class="param-label">分辨率</div>
+        <select class="form-select" x-model="imageParams.resolution">
+          <option value="1k">1K（最快）</option>
+          <option value="2k">2K（默认）</option>
+          <option value="4k">4K（最清晰）</option>
+        </select>
+      </div>
+      <div class="param-row">
+        <div class="param-label">比例</div>
+        <div class="ratio-grid">
+          <template x-for="r in ['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9']" :key="r">
+            <div class="ratio-opt" :class="{'active': imageParams.ratio === r}" @click="imageParams.ratio = r" x-text="r"></div>
+          </template>
+        </div>
+      </div>
+      <div class="param-row" x-show="['jimeng-4.0','jimeng-4.1','jimeng-4.5'].includes(imageParams.model)">
+        <div class="param-label">智能比例</div>
+        <select class="form-select" x-model="imageParams.intelligent_ratio_str">
+          <option value="false">关闭</option>
+          <option value="true">根据提示词自动</option>
+        </select>
+        <div class="text-xs text-tertiary" style="margin-top:6px">仅 jimeng-4.0/4.1/4.5 支持</div>
+      </div>
+
+      <!-- ─── 图生图：本地上传 + 公网 URL ── -->
+      <div class="param-row">
+        <div class="param-label">参考图（图生图，留空=纯文本）</div>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:block;text-align:center;margin-bottom:6px">
+          📁 上传本地图片
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" @change="uploadImage($event)">
+        </label>
+        <template x-for="(img, idx) in imageParams.source_images" :key="idx">
+          <div class="flex gap-sm" style="align-items:center;padding:6px;background:var(--bg-sunken);border-radius:6px;margin-bottom:4px">
+            <img :src="img.preview_url" style="width:40px;height:40px;object-fit:cover;border-radius:4px">
+            <span class="text-xs" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="img.name"></span>
+            <button class="btn btn-ghost btn-sm" @click="imageParams.source_images.splice(idx,1)">✕</button>
+          </div>
+        </template>
+        <input class="form-input" x-model="imageParams.url_input" placeholder="或粘贴图片 URL 后回车" @keydown.enter="addImageUrl()" style="margin-top:4px">
+      </div>
+    </div>
+    </template>
+
+    <template x-if="mode==='video'">
+    <div>
+      <div class="card mb-md" style="padding:12px;background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2)">
+        <div class="text-xs" style="color:var(--warning);line-height:1.6">
+          ⚠️ 视频生成耗时较长（30 秒～5 分钟），请耐心等待。每个任务消耗 <strong>5 credits</strong>。
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-label">视频模型</div>
+        <select class="form-select" x-model="videoParams.model">
+          {% for m in video_models %}
+          <option value="{{ m.id }}">{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="param-row">
+        <div class="param-label">比例</div>
+        <div class="ratio-grid">
+          <template x-for="r in ['1:1','4:3','3:4','16:9','9:16','21:9']" :key="r">
+            <div class="ratio-opt" :class="{'active': videoParams.ratio === r}" @click="videoParams.ratio = r" x-text="r"></div>
+          </template>
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-label">时长（秒）</div>
+        <select class="form-select" x-model="videoParams.duration_str">
+          <option value="5">5 秒（默认）</option>
+          <option value="10">10 秒</option>
+          <option value="12">12 秒（仅 3.5-pro）</option>
+        </select>
+      </div>
+      <div class="param-row">
+        <div class="param-label">分辨率</div>
+        <select class="form-select" x-model="videoParams.resolution">
+          <option value="720p">720p（默认）</option>
+          <option value="1080p">1080p（仅 3.0/3.0-fast）</option>
+        </select>
+      </div>
+
+      <!-- ─── 生成模式（新）── -->
+      <div class="param-row">
+        <div class="param-label">生成模式</div>
+        <select class="form-select" x-model="videoParams.function_mode">
+          <option value="text_to_video">文本生成（默认，无需素材）</option>
+          <option value="first_last_frames">首尾帧（1-2 张图定首帧/尾帧）</option>
+          <option value="omni_reference">全能参考（Seedance 2.0 专属，多素材）</option>
+        </select>
+        <div class="text-xs text-tertiary mt-sm" x-show="videoParams.function_mode === 'omni_reference'">
+          ⚠️ 全能参考仅支持 Seedance 2.0 系列模型
+        </div>
+      </div>
+
+      <!-- ─── 素材上传（首尾帧 / 全能参考）── -->
+      <div class="param-row" x-show="videoParams.function_mode !== 'text_to_video'">
+        <div class="param-label">
+          <span x-show="videoParams.function_mode === 'first_last_frames'">首尾帧素材</span>
+          <span x-show="videoParams.function_mode === 'omni_reference'">参考素材（最多 10 个）</span>
+        </div>
+
+        <!-- 首尾帧模式：2 个独立的 URL 输入框 -->
+        <template x-if="videoParams.function_mode === 'first_last_frames'">
+          <div class="flex gap-sm" style="flex-direction:column">
+            <input class="form-input" x-model="videoParams.first_frame_url"
+                   placeholder="首帧图片 URL（或从媒体库粘贴）">
+            <input class="form-input" x-model="videoParams.last_frame_url"
+                   placeholder="尾帧图片 URL（可选）">
+          </div>
+        </template>
+
+        <!-- 全能参考模式：多个 URL（逗号分隔）-->
+        <template x-if="videoParams.function_mode === 'omni_reference'">
+          <div class="flex gap-sm" style="flex-direction:column">
+            <textarea class="form-input" rows="3" x-model="videoParams.reference_urls_text"
+                      placeholder="参考素材 URL，每行一个（图片或视频）&#10;最多 10 个"></textarea>
+            <div class="text-xs text-tertiary">从媒体库详情页复制图片/视频的 URL 粘贴到这里</div>
+          </div>
+        </template>
+      </div>
+    </div>
+    </template>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+
+function generateCanvas() {
+  return {
+    mode: 'image',  // 'image' | 'video'
+    prompts: '',
+    promptCount: 0,
+    submitting: false,
+    jobs: [],
+    imageParams: {
+      model: 'jimeng-4.0',
+      resolution: '2k',
+      ratio: '16:9',
+      intelligent_ratio_str: 'false',
+      source_images: [],
+      url_input: '',
+    },
+    videoParams: {
+      model: 'jimeng-video-3.5-pro',
+      ratio: '16:9',
+      duration_str: '5',
+      resolution: '720p',
+      function_mode: 'text_to_video',   // text_to_video | first_last_frames | omni_reference
+      first_frame_url: '',
+      last_frame_url: '',
+      reference_urls_text: '',           // textarea 多行 URL
+    },
+    jobTimings: {},  // job_id → {started_at_ms, est_total_ms}
+
+    init() {
+      this.countPrompts();
+      this.connectSSE();
+      // If arrived from /templates via "apply" button, preload params.
+      const tplJson = sessionStorage.getItem('jsa_apply_template');
+      if (tplJson) {
+        sessionStorage.removeItem('jsa_apply_template');
+        try {
+          const tpl = JSON.parse(tplJson);
+          this.applyTemplateObject(tpl);
+        } catch (e) { console.warn('bad template', e); }
+      }
+    },
+
+    applyTemplateObject(tpl) {
+      // Decide if it's image or video by model id prefix.
+      const isVideo = (tpl.model || '').startsWith('jimeng-video');
+      this.mode = isVideo ? 'video' : 'image';
+      if (isVideo) {
+        this.videoParams.model = tpl.model;
+        if (tpl.ratio) this.videoParams.ratio = tpl.ratio;
+      } else {
+        this.imageParams.model = tpl.model;
+        if (tpl.ratio) this.imageParams.ratio = tpl.ratio;
+        if (tpl.resolution) this.imageParams.resolution = tpl.resolution;
+      }
+      this.notify(`已套用模板：${tpl.name}`);
+      // If style_prefix, prepend to prompts.
+      if (tpl.style_prefix) {
+        this.prompts = tpl.style_prefix + ' ' + this.prompts;
+        this.countPrompts();
+      }
+    },
+
+    switchMode(m) {
+      this.mode = m;
+      this.countPrompts();
+    },
+
+    countPrompts() {
+      this.promptCount = this.prompts.split('\n').map(s => s.trim()).filter(Boolean).length;
+    },
+
+    progressPct(job) {
+      if (job.status === 'queued') return 5;
+      if (job.status === 'succeeded') return 100;
+      const t = this.jobTimings[job.id];
+      if (!t) return 30;
+      const elapsed = Date.now() - t.started_at_ms;
+      const est = t.est_total_ms;
+      // asymptotic: 95 * (1 - exp(-elapsed/est))
+      const pct = 95 * (1 - Math.exp(-elapsed / (est * 0.7)));
+      return Math.max(10, Math.min(95, Math.round(pct)));
+    },
+
+    statusLabel(s) {
+      return {queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '已取消'}[s] || s;
+    },
+
+    jobLabel(job) {
+      const MODEL_NAMES = {
+        'jimeng-5.0':'盈灵 5.0','jimeng-4.6':'盈灵 4.6','jimeng-4.5':'盈灵 4.5',
+        'jimeng-4.1':'盈灵 4.1','jimeng-4.0':'盈灵 4.0','jimeng-3.1':'盈灵 3.1',
+        'jimeng-3.0':'盈灵 3.0','gpt-image-2':'盈灵新版',
+        'jimeng-video-seedance-2.0':'盈灵 Seedance 2.0',
+        'jimeng-video-seedance-2.0-fast':'盈灵 Seedance 2.0 Fast',
+        'jimeng-video-seedance-2.0-fast-vip':'盈灵 Seedance 2.0 Fast VIP',
+        'jimeng-video-seedance-2.0-vip':'盈灵 Seedance 2.0 VIP',
+        'jimeng-video-seedance-2.0-mini':'盈灵 Seedance 2.0 mini',
+        'jimeng-video-3.5-pro':'盈灵专业版 3.5',
+        'jimeng-video-3.0-pro':'盈灵专业版 3.0','jimeng-video-3.0':'盈灵标准版 3.0',
+        'jimeng-video-3.0-fast':'盈灵快速版 3.0',
+        'jimeng-video-2.0-pro':'盈灵专业版 2.0','jimeng-video-2.0':'盈灵标准版 2.0',
+      };
+      const p = job.params || {};
+      const modelName = MODEL_NAMES[p.model] || p.model || '默认';
+      const parts = [modelName, p.ratio || '1:1'];
+      if (job.type === 'image') parts.push(p.resolution || '2k');
+      if (job.type === 'video' && p.duration) parts.push(p.duration + 's');
+      if (job.variation_count) parts.push(job.variation_count + (job.type==='video' ? ' 个' : ' 张'));
+      return parts.join(' · ');
+    },
+
+    async uploadCsv(ev) {
+      const file = ev.target.files[0];
+      if (!file) return;
+      ev.target.value = '';
+      const text = await file.text();
+      let txt = text;
+      if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
+      const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (!lines.length) { alert('CSV 文件为空'); return; }
+      const firstLower = lines[0].toLowerCase();
+      let imported = [];
+      if (firstLower.includes('prompt') || firstLower.includes('提示词')) {
+        const headers = this._csvSplitLine(lines[0]).map(h => h.toLowerCase().trim());
+        const idx = headers.findIndex(h => h === 'prompt' || h.includes('提示词'));
+        if (idx >= 0) {
+          for (let i = 1; i < lines.length; i++) {
+            const cols = this._csvSplitLine(lines[i]);
+            if (cols[idx]) imported.push(cols[idx].trim());
+          }
+        }
+      } else {
+        imported = lines;
+      }
+      if (!imported.length) { alert('CSV 中未找到提示词'); return; }
+      const existing = this.prompts.split('\n').map(s => s.trim()).filter(Boolean);
+      const merged = [...existing, ...imported];
+      this.prompts = merged.join('\n');
+      this.countPrompts();
+      this.notify(`已从 CSV 导入 ${imported.length} 个提示词（共 ${merged.length} 个）`);
+    },
+
+    _csvSplitLine(line) {
+      const out = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (inQ) {
+          if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (c === '"') inQ = false;
+          else cur += c;
+        } else {
+          if (c === ',') { out.push(cur); cur = ''; }
+          else if (c === '"' && !cur) inQ = true;
+          else cur += c;
+        }
+      }
+      out.push(cur); return out;
+    },
+
+    notify(msg) {
+      const t = document.createElement('div');
+      t.className = 'toast success';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    },
+
+    async uploadImage(ev) {
+      const file = ev.target.files[0];
+      if (!file) return;
+      if (this.imageParams.source_images.length >= 2) { alert('最多 2 张参考图'); return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch('/api/uploads/image', {method: 'POST', body: fd});
+        if (r.status === 401) { window.location.href = '/login'; return; }
+        if (!r.ok) { alert('上传失败'); return; }
+        const d = await r.json();
+        this.imageParams.source_images.push({
+          path: d.path,
+          preview_url: d.preview_url,
+          name: file.name,
+        });
+      } catch(e) { alert('上传错误: ' + e.message); }
+      ev.target.value = '';
+    },
+
+    addImageUrl() {
+      const url = (this.imageParams.url_input || '').trim();
+      if (!url) return;
+      if (this.imageParams.source_images.length >= 2) { alert('最多 2 张参考图'); return; }
+      if (!url.startsWith('http://') && !url.startsWith('https://')) { alert('请输入有效的 URL'); return; }
+      this.imageParams.source_images.push({
+        url: url,
+        preview_url: url,
+        name: url.split('/').pop() || '网络图片',
+      });
+      this.imageParams.url_input = '';
+    },
+
+    buildParams() {
+      if (this.mode === 'image') {
+        var p = {
+          model: this.imageParams.model,
+          ratio: this.imageParams.ratio,
+          resolution: this.imageParams.resolution,
+          intelligent_ratio: this.imageParams.intelligent_ratio_str === 'true',
+        };
+        if (this.imageParams.source_images.length > 0) {
+          p.source_image_urls = this.imageParams.source_images.map(function(img) {
+            return img.path || img.url;
+          });
+        }
+        return p;
+      }
+      return {
+        model: this.videoParams.model,
+        ratio: this.videoParams.ratio,
+        duration: parseInt(this.videoParams.duration_str, 10) || 5,
+        resolution: this.videoParams.resolution,
+        function_mode: this.videoParams.function_mode,
+      };
+      // 按模式追加素材字段
+      if (this.videoParams.function_mode === 'first_last_frames') {
+        if (this.videoParams.first_frame_url) p.first_frame_url = this.videoParams.first_frame_url.trim();
+        if (this.videoParams.last_frame_url)  p.last_frame_url  = this.videoParams.last_frame_url.trim();
+      } else if (this.videoParams.function_mode === 'omni_reference') {
+        // 解析 textarea（每行一个 URL）
+        const refs = (this.videoParams.reference_urls_text || '')
+          .split('\n').map(s => s.trim()).filter(Boolean);
+        if (refs.length > 0) p.reference_urls = refs;
+      }
+      return p;
+    },
+    async submit() {
+      const lines = this.prompts.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!lines.length) return;
+      this.submitting = true;
+      try {
+        const resp = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ACCESS_TOKEN},
+          body: JSON.stringify({
+            type: this.mode,
+            prompts: lines,
+            provider: 'jimeng',
+            params: this.buildParams(),
+          }),
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (resp.status === 402) {
+          const err = await resp.json().catch(() => ({}));
+          alert('额度不足：' + (err.detail || '')); return;
+        }
+        if (!resp.status || resp.status >= 400) {
+          const err = await resp.json().catch(() => ({detail: '提交失败'}));
+          alert(err.detail); return;
+        }
+        const created = await resp.json();
+        // Seed timing estimates for the progress UI.
+        const estMs = this.mode === 'video' ? 180000 : 20000;
+        for (const j of created) {
+          this.jobTimings[j.id] = {started_at_ms: Date.now(), est_total_ms: estMs};
+        }
+        this.jobs = [...created, ...this.jobs];
+        this.prompts = '';
+        this.countPrompts();
+        // 提交成功后立即允许再次提交，不等之前的任务跑完。
+        // 用户可以连续提交多批，全部进队列排队。
+        this.notify(`已提交 ${created.length} 个任务到队列（可继续提交）`);
+      } catch (e) {
+        alert('网络错误：' + e.message);
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    // ─── SSE: real-time updates from worker (replaces polling) ──
+    sseSource: null,
+    connectSSE() {
+      if (!ACCESS_TOKEN) { setTimeout(() => this.connectSSE(), 1500); return; }
+      // EventSource doesn't support Authorization header, so we fall back to
+      // polling every 3s — but ONLY when there are active jobs. SSE endpoint
+      // exists at /api/jobs/stream but requires header auth; for v1 polling
+      // is simpler and works in all browsers.
+      setInterval(() => this.pollActive(), 2500);
+    },
+    async pollActive() {
+      const hasActive = this.jobs.some(j => j.status === 'queued' || j.status === 'running');
+      if (!hasActive) return;
+      // Use Promise.all to fetch queued + running in parallel.
+      const fetchStatus = async (status) => {
+        const r = await fetch(`/api/jobs?status=${status}&page_size=20`, {
+          headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+        });
+        if (!r.ok) return [];
+        const d = await r.json();
+        return d.items || [];
+      };
+      try {
+        const [queued, running] = await Promise.all([fetchStatus('queued'), fetchStatus('running')]);
+        const serverJobs = [...queued, ...running];
+        for (const sj of serverJobs) {
+          const local = this.jobs.find(x => x.id === sj.id);
+          if (local && local.status !== sj.status) {
+            Object.assign(local, sj);
+          }
+        }
+        // Also refresh any local 'running'/'queued' that the server says are now done.
+        const done = await fetchStatus('succeeded');
+        const failed = await fetchStatus('failed');
+        for (const fj of [...done, ...failed]) {
+          const local = this.jobs.find(x => x.id === fj.id);
+          if (local && (local.status === 'running' || local.status === 'queued')) {
+            // fetch full job detail to get artifacts
+            const r = await fetch(`/api/jobs/${fj.id}`, {
+              headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+            });
+            if (r.ok) Object.assign(local, await r.json());
+          }
+        }
+      } catch {}
+    },
+  };
+}
+</script>
+{% endblock %}

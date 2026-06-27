@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+/* Markdown rendering ----------------------------------------------------- */
+.md {
+  @apply text-[15px] leading-7;
+}
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+.md p {
+  @apply my-3;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  @apply font-semibold my-4 leading-snug;
+}
+.md h1 {
+  @apply text-xl;
+}
+.md h2 {
+  @apply text-lg;
+}
+.md h3 {
+  @apply text-base;
+}
+.md ul {
+  @apply list-disc pl-6 my-3 space-y-1;
+}
+.md ol {
+  @apply list-decimal pl-6 my-3 space-y-1;
+}
+.md a {
+  @apply text-blue-600 underline underline-offset-2;
+}
+.md blockquote {
+  @apply border-l-2 border-border pl-4 my-3 text-muted-foreground;
+}
+.md table {
+  @apply my-3 w-full border-collapse text-sm;
+}
+.md th,
+.md td {
+  @apply border border-border px-3 py-1.5 text-left;
+}
+/* inline code only (block code carries .hljs from rehype-highlight) */
+.md code:not(.hljs) {
+  @apply rounded bg-muted px-1.5 py-0.5 text-[0.85em] font-mono;
+}
+.md pre {
+  margin: 0;
+}
+.md pre code.hljs {
+  @apply block overflow-x-auto rounded-lg p-4 text-[13px] leading-relaxed;
+  background: hsl(240 5% 96%);
+}

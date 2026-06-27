@@ -1,0 +1,27 @@
+services:
+  monica-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: monica-proxy
+    container_name: monica-proxy
+    restart: unless-stopped
+    command: ["./monica"]
+    environment:
+      - MONICA_COOKIE=${MONICA_COOKIE}
+      - BEARER_TOKEN=${BEARER_TOKEN}
+      # 限流配置（可选）
+      - RATE_LIMIT_RPS=${RATE_LIMIT_RPS:-0}  # 默认0=禁用限流
+      # 其他可选配置
+      - TLS_SKIP_VERIFY=${TLS_SKIP_VERIFY:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+  nginx:
+    image: nginx:latest
+    container_name: monica-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - monica-proxy

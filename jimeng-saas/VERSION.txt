@@ -1,0 +1,28 @@
+盈灵创意 — 稳定版本备份
+================================
+日期: 2026-06-24
+
+已验证功能:
+  ✅ 文本生成图片（即梦 7 个模型 + 盈灵新版 gpt-image-2）
+  ✅ 图生图（本地上传 + 公网 URL）
+  ✅ 视频生成（11 个模型，含 Seedance 5 个子型号）
+  ✅ 3 种视频模式（文本/首尾帧/全能参考）
+  ✅ 媒体库（排序/筛选/搜索/分页/批量删除）
+  ✅ 模板系统
+  ✅ 用户注册（默认 10 credits，非管理员看不到 API Key 和视频功能）
+  ✅ Stripe 套餐（mock 模式）
+  ✅ PostgreSQL + Memurai（零 Docker）
+  ✅ 模型名称中文化（盈灵 XX）
+  ✅ 流光紫金按钮
+  ✅ 审核失败正确返回错误
+  ✅ Seedance 模型映射（抓包确认）
+
+技术栈:
+  - Python 3.10 / FastAPI / SQLModel / Jinja2 / Alpine.js
+  - PostgreSQL 16 (G:\AI\pgsql)
+  - Memurai (Redis 兼容)
+  - iptag/jimeng-api (Node 源码本地跑)
+  - 端口: Web=8002, jimeng-api=5100, PG=5432, Redis=6379
+
+启动: 双击 start_all.bat 或 http://127.0.0.1:8002
+登录: admin@example.com / admin123

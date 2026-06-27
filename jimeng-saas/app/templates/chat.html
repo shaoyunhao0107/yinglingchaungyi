@@ -1,0 +1,1302 @@
+{% extends "base.html" %}
+{% block title %}AI 对话 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div x-data="chatApp()" x-init="init()" class="chat-shell">
+
+  <!-- 左侧：会话栏 -->
+  <aside class="conv-rail">
+    <div class="conv-rail-header">
+      <button class="conv-new-btn" @click="newConversation()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M8 3v10M3 8h10"/>
+        </svg>
+        <span>新建对话</span>
+      </button>
+    </div>
+
+    <div class="conv-search-wrap" x-show="conversations.length > 5">
+      <svg class="conv-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="7" cy="7" r="5"/>
+        <path d="m14 14-3-3"/>
+      </svg>
+      <input type="text" x-model="searchQuery" placeholder="搜索对话…" class="conv-search-input">
+    </div>
+
+    <div class="conv-list">
+      <template x-if="loadingConvs">
+        <div class="conv-list-state">
+          <div class="conv-skel"></div><div class="conv-skel"></div><div class="conv-skel"></div>
+        </div>
+      </template>
+
+      <template x-if="!loadingConvs && filteredConvs.length === 0">
+        <div class="conv-list-state">
+          <div class="conv-empty-illu">✨</div>
+          <div class="conv-empty-text" x-show="!searchQuery">点击上方<br>开始你的第一次对话</div>
+          <div class="conv-empty-text" x-show="searchQuery">没有匹配的对话</div>
+        </div>
+      </template>
+
+      <template x-for="c in filteredConvs" :key="c.id">
+        <div :class="currentId === c.id ? 'conv-item active' : 'conv-item'"
+             @click="selectConversation(c.id)">
+          <div class="conv-item-pin" x-show="c.pinned">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.902-1.414.707-.195-.195.512-1.22.707-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.767 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.133a2.772 2.772 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z"/>
+            </svg>
+          </div>
+          <div class="conv-item-body">
+            <div class="conv-item-title" x-text="c.title"></div>
+            <div class="conv-item-preview" x-text="c.preview || '新对话'"></div>
+            <div class="conv-item-meta">
+              <span class="conv-meta-count" x-text="c.message_count + ' 条'"></span>
+              <span class="conv-meta-dot">·</span>
+              <span class="conv-meta-time" x-text="fmtTime(c.updated_at)"></span>
+            </div>
+          </div>
+          <div class="conv-item-menu" @click.stop>
+            <button class="conv-menu-btn" @click="togglePin(c)" :title="c.pinned ? '取消置顶' : '置顶'">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.902-1.414.707-.195-.195.512-1.22.707-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.767 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.133a2.772 2.772 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z"/>
+              </svg>
+            </button>
+            <button class="conv-menu-btn" @click="renameConversation(c)" title="重命名">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <path d="M11.5 2.5l2 2L5 13l-2.5.5L3 11l8.5-8.5z"/>
+              </svg>
+            </button>
+            <button class="conv-menu-btn conv-menu-danger" @click="deleteConversation(c)" title="删除">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <path d="M3 4h10M6 4V2.5h4V4M5 4l.5 9h5L11 4M7 7v4M9 7v4"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </aside>
+
+  <!-- 右侧：对话主区 -->
+  <section class="chat-stage">
+    <!-- 顶部头条 -->
+    <header class="chat-head">
+      <div class="chat-head-info">
+        <h1 class="chat-title">AI 对话</h1>
+        <div class="chat-subtitle">由盈灵创意驱动 · 支持 GPT / Claude / Gemini / Grok</div>
+      </div>
+      <div class="chat-quota">
+        <div class="quota-num">{{ quota_remaining }}</div>
+        <div class="quota-label">credits</div>
+      </div>
+    </header>
+
+    <!-- 工具栏 -->
+    <div class="chat-tools" x-show="currentId">
+      <div class="tool-select-wrap">
+        <select x-model="currentModel" class="tool-select" @change="onModelChange()">
+          <template x-for="m in models" :key="m">
+            <option :value="m" x-text="m"></option>
+          </template>
+        </select>
+        <svg class="tool-select-caret" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="m4 6 4 4 4-4"/>
+        </svg>
+      </div>
+
+      <div class="tool-divider"></div>
+
+      <label class="tool-toggle" :class="streamMode ? 'on' : ''">
+        <input type="checkbox" x-model="streamMode" @change="savePrefs()">
+        <span class="tool-toggle-dot"></span>
+        <span class="tool-toggle-label">流式</span>
+      </label>
+      <label class="tool-toggle" :class="showReasoning ? 'on' : ''">
+        <input type="checkbox" x-model="showReasoning">
+        <span class="tool-toggle-dot"></span>
+        <span class="tool-toggle-label">思考</span>
+      </label>
+      <label class="tool-toggle" :class="renderMd ? 'on' : ''">
+        <input type="checkbox" x-model="renderMd" @change="savePrefs()">
+        <span class="tool-toggle-dot"></span>
+        <span class="tool-toggle-label">MD</span>
+      </label>
+
+      <div style="flex:1"></div>
+      <span class="chat-status" x-show="models.length === 0">⚠ 模型未加载</span>
+    </div>
+
+    <!-- 消息流 -->
+    <div class="msg-stream" x-ref="stream">
+      <template x-if="!currentId">
+        <div class="stream-empty">
+          <div class="empty-glow"></div>
+          <div class="empty-illu">💬</div>
+          <h3 class="empty-title">开启一段新对话</h3>
+          <p class="empty-hint">从左侧「新建对话」开始，或试试这些：</p>
+          <div class="empty-prompts">
+            <template x-for="q in quickPrompts" :key="q">
+              <button class="prompt-chip" @click="newConversationWith(q)" x-text="q"></button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="currentId && messages.length === 0 && !loading">
+        <div class="stream-empty stream-empty-mini">
+          <div class="empty-prompts">
+            <template x-for="q in quickPrompts" :key="q">
+              <button class="prompt-chip" @click="quickSend(q)" x-text="q"></button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <template x-for="(msg, idx) in messages" :key="msg.id || idx">
+        <div :class="msg.role === 'user' ? 'bubble bubble-user' : 'bubble bubble-bot'">
+          <div class="bubble-avatar" x-text="msg.role === 'user' ? '我' : 'AI'"></div>
+          <div class="bubble-content-wrap">
+            <div class="bubble-meta">
+              <span class="bubble-author" x-text="msg.role === 'user' ? '你' : (msg.model || '助手')"></span>
+              <span class="bubble-time" x-show="msg.elapsed_ms" x-text="msg.elapsed_ms ? (msg.elapsed_ms/1000).toFixed(1)+'s' : ''"></span>
+            </div>
+            <div class="bubble-content" x-html="renderContent(msg.content)"></div>
+            <div class="bubble-actions" x-show="msg.role === 'assistant' && msg.content && !msg.content.startsWith('[ERROR]')">
+              <button class="bubble-action" @click="copyMessage(idx)">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <rect x="5" y="5" width="8" height="8" rx="1.5"/>
+                  <path d="M3 11V3.5C3 2.7 3.7 2 4.5 2H11"/>
+                </svg>
+                <span x-text="copied === idx ? '已复制' : '复制'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="loading">
+        <div class="bubble bubble-bot">
+          <div class="bubble-avatar">AI</div>
+          <div class="bubble-content-wrap">
+            <div class="bubble-meta">
+              <span class="bubble-author" x-text="currentModel"></span>
+            </div>
+            <div class="bubble-content">
+              <div class="typing">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 输入区 -->
+    <div class="composer" x-show="currentId">
+      <div class="composer-inner">
+        <textarea
+          x-model="input"
+          @keydown.enter.meta.prevent="send()"
+          @keydown.enter.ctrl.prevent="send()"
+          placeholder="给 AI 发送消息…  ⌘/Ctrl + Enter 发送"
+          rows="1"
+          class="composer-input"
+          x-ref="composer"
+        ></textarea>
+        <button class="composer-send" @click="send()" :disabled="loading || !input.trim() || !currentId">
+          <template x-if="!loading">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 8l12-5-5 12-2-5-5-2z"/>
+            </svg>
+          </template>
+          <template x-if="loading">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="2"/>
+            </svg>
+          </template>
+        </button>
+      </div>
+      <div class="composer-foot">
+        <span class="composer-counter" x-text="input.length + ' 字'"></span>
+        <span class="composer-error" x-show="error" x-text="error"></span>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+/* ============================================================
+   AI 对话 — Aurora 视觉系统
+   设计原则：紫粉极光、玻璃态、克制留白、细节呼吸感
+   ============================================================ */
+
+.chat-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  min-height: calc(100vh - 100px);
+  padding: 4px;
+}
+
+/* ─── 左侧会话栏 ─── */
+.conv-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.conv-rail-header { flex-shrink: 0; }
+
+.conv-new-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  background: linear-gradient(135deg, var(--accent-from) 0%, var(--accent-to) 100%);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.conv-new-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.conv-new-btn:active { transform: translateY(0); }
+
+.conv-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.conv-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-quaternary);
+  pointer-events: none;
+}
+.conv-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.conv-search-input:focus { border-color: var(--accent-solid); }
+.conv-search-input::placeholder { color: var(--text-quaternary); }
+
+.conv-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-right: -4px;
+  min-height: 0;
+}
+.conv-list::-webkit-scrollbar { width: 4px; }
+.conv-list::-webkit-scrollbar-thumb { background: var(--border-standard); border-radius: 2px; }
+
+.conv-list-state {
+  padding: 40px 16px;
+  text-align: center;
+}
+.conv-empty-illu { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+.conv-empty-text {
+  font-size: 12px;
+  color: var(--text-quaternary);
+  line-height: 1.6;
+}
+
+.conv-skel {
+  height: 56px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--bg-elevated) 0%, rgba(255,255,255,0.03) 50%, var(--bg-elevated) 100%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skel-shimmer 1.6s infinite;
+}
+@keyframes skel-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.conv-item {
+  position: relative;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.conv-item:hover {
+  background: rgba(255,255,255,0.025);
+  border-color: var(--border-subtle);
+}
+.conv-item.active {
+  background: linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(236,72,153,0.06) 100%);
+  border-color: rgba(139,92,246,0.25);
+}
+.conv-item.active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent-from), var(--accent-to));
+}
+
+.conv-item-pin {
+  color: var(--accent-solid);
+  flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.conv-item-body { flex: 1; min-width: 0; }
+
+.conv-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 3px;
+}
+
+.conv-item-preview {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.conv-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-quaternary);
+}
+.conv-meta-dot { opacity: 0.5; }
+
+.conv-item-menu {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  gap: 2px;
+  background: rgba(20,20,24,0.92);
+  backdrop-filter: blur(12px);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+.conv-item:hover .conv-item-menu { display: flex; }
+
+.conv-menu-btn {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.conv-menu-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.conv-menu-danger:hover { background: rgba(239,68,68,0.12); color: var(--error); }
+
+/* ─── 右侧主区 ─── */
+.chat-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.chat-title {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.chat-subtitle {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.chat-quota {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 6px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.quota-num {
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.quota-label {
+  font-size: 10px;
+  color: var(--text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* ─── 工具栏 ─── */
+.chat-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.tool-select-wrap {
+  position: relative;
+}
+.tool-select {
+  appearance: none;
+  background: rgba(0,0,0,0.3);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 28px 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  min-width: 180px;
+  transition: border-color 0.15s;
+}
+.tool-select:hover { border-color: var(--border-standard); }
+.tool-select:focus { border-color: var(--accent-solid); }
+.tool-select-caret {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-quaternary);
+  pointer-events: none;
+}
+
+.tool-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+}
+
+.tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  transition: all 0.15s;
+}
+.tool-toggle input { display: none; }
+.tool-toggle:hover { border-color: var(--border-standard); }
+.tool-toggle.on {
+  background: rgba(139,92,246,0.10);
+  border-color: rgba(139,92,246,0.30);
+  color: var(--text-primary);
+}
+.tool-toggle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+  transition: all 0.2s;
+}
+.tool-toggle.on .tool-toggle-dot {
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.chat-status { font-size: 11.5px; color: var(--warning); }
+
+/* ─── 消息流 ─── */
+.msg-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px 4px 4px;
+  margin-right: -4px;
+  min-height: 320px;
+  scroll-behavior: smooth;
+}
+.msg-stream::-webkit-scrollbar { width: 6px; }
+.msg-stream::-webkit-scrollbar-thumb { background: var(--border-standard); border-radius: 3px; }
+.msg-stream::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* 空状态 */
+.stream-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  min-height: 380px;
+  padding: 40px 20px;
+  position: relative;
+}
+.stream-empty-mini { min-height: 200px; }
+
+.empty-glow {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+  filter: blur(40px);
+  opacity: 0.6;
+  z-index: 0;
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+@keyframes glow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+}
+
+.empty-illu {
+  font-size: 52px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 0 24px var(--accent-glow));
+  position: relative;
+  z-index: 1;
+}
+.empty-title {
+  font-size: 20px;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+.empty-hint {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 480px;
+  position: relative;
+  z-index: 1;
+}
+
+.prompt-chip {
+  padding: 7px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.prompt-chip:hover {
+  background: rgba(139,92,246,0.08);
+  border-color: rgba(139,92,246,0.30);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* ─── 消息气泡 ─── */
+.bubble {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+  animation: bubble-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes bubble-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.bubble-user { flex-direction: row-reverse; }
+
+.bubble-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+.bubble-user .bubble-avatar {
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  color: #fff;
+  box-shadow: 0 4px 14px -4px var(--accent-glow);
+}
+.bubble-bot .bubble-avatar {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-standard);
+}
+
+.bubble-content-wrap {
+  max-width: calc(100% - 50px);
+  min-width: 0;
+}
+.bubble-user .bubble-content-wrap { text-align: right; }
+
+.bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+.bubble-user .bubble-meta { justify-content: flex-end; }
+.bubble-author { color: var(--text-tertiary); font-weight: 500; }
+.bubble-time {
+  color: var(--text-quaternary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+
+.bubble-content {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  word-wrap: break-word;
+  text-align: left;
+  position: relative;
+}
+.bubble-user .bubble-content {
+  background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(236,72,153,0.10) 100%);
+  border: 1px solid rgba(139,92,246,0.18);
+  border-top-right-radius: 4px;
+}
+.bubble-bot .bubble-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-top-left-radius: 4px;
+}
+
+/* Markdown 渲染 */
+.bubble-content .reasoning {
+  display: block;
+  color: var(--text-quaternary);
+  font-style: italic;
+  border-left: 2px solid var(--accent-solid);
+  padding: 4px 12px;
+  margin: 8px 0;
+  font-size: 12.5px;
+  background: rgba(139,92,246,0.04);
+  border-radius: 0 6px 6px 0;
+}
+.bubble-content p { margin: 0 0 8px; }
+.bubble-content p:last-child { margin-bottom: 0; }
+.bubble-content ul, .bubble-content ol { margin: 6px 0; padding-left: 22px; }
+.bubble-content li { margin: 2px 0; }
+.bubble-content h1, .bubble-content h2, .bubble-content h3 {
+  margin: 12px 0 6px; font-weight: 700; letter-spacing: -0.01em;
+}
+.bubble-content h1 { font-size: 18px; }
+.bubble-content h2 { font-size: 16px; }
+.bubble-content h3 { font-size: 14.5px; }
+.bubble-content strong { font-weight: 700; }
+.bubble-content code {
+  background: rgba(139,92,246,0.10);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.bubble-content pre {
+  background: var(--bg-sunken);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+}
+.bubble-content pre code {
+  background: transparent;
+  padding: 0;
+  color: var(--text-secondary);
+}
+.bubble-content blockquote {
+  border-left: 3px solid var(--accent-solid);
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  background: rgba(139,92,246,0.04);
+}
+.bubble-content table { border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+.bubble-content th, .bubble-content td {
+  border: 1px solid var(--border-standard);
+  padding: 6px 10px;
+}
+.bubble-content th {
+  background: rgba(255,255,255,0.03);
+  font-weight: 600;
+}
+.bubble-content a { color: #60a5fa; text-decoration: underline; }
+.bubble-content hr {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: 12px 0;
+}
+
+.bubble-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.bubble:hover .bubble-actions { opacity: 1; }
+.bubble-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bubble-action:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-standard);
+  color: var(--text-primary);
+}
+
+/* Typing indicator */
+.typing { display: inline-flex; gap: 4px; padding: 4px 0; }
+.typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  opacity: 0.5;
+  animation: typing-pulse 1.4s infinite both;
+}
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-pulse {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.85); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+/* ─── 输入区 ─── */
+.composer {
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.composer:focus-within {
+  border-color: rgba(139,92,246,0.30);
+  box-shadow: 0 0 0 4px rgba(139,92,246,0.06);
+}
+
+.composer-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.composer-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  min-height: 24px;
+  max-height: 200px;
+  padding: 6px 4px;
+}
+.composer-input::placeholder { color: var(--text-quaternary); }
+
+.composer-send {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  box-shadow: 0 4px 12px -4px var(--accent-glow);
+}
+.composer-send:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px -4px var(--accent-glow);
+}
+.composer-send:disabled {
+  background: var(--bg-sunken);
+  color: var(--text-quaternary);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.composer-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  color: var(--text-quaternary);
+}
+.composer-error { color: var(--error); }
+
+/* ─── 响应式 ─── */
+@media (max-width: 960px) {
+  .chat-shell { grid-template-columns: 1fr; }
+  .conv-rail { display: none; }
+  .chat-head { flex-wrap: wrap; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/vendor/marked.min.js"></script>
+<script>
+function chatApp() {
+  return {
+    models: [],
+    conversations: [],
+    currentId: null,
+    messages: [],
+    input: '',
+    loading: false,
+    loadingConvs: false,
+    loadingModels: false,
+    error: '',
+    abortCtl: null,
+    copied: -1,
+    searchQuery: '',
+    currentModel: localStorage.getItem('jsa_chat_model') || 'gpt-5.4',
+    streamMode: localStorage.getItem('jsa_chat_stream') !== '0',
+    showReasoning: localStorage.getItem('jsa_chat_reasoning') === '1',
+    renderMd: localStorage.getItem('jsa_chat_md') !== '0',
+    quickPrompts: ['你好，介绍一下你自己', '1+1等于几？', '帮我写一首关于月亮的诗', '用 Python 写一个快速排序'],
+
+    get filteredConvs() {
+      if (!this.searchQuery.trim()) return this.conversations;
+      const q = this.searchQuery.toLowerCase();
+      return this.conversations.filter(c =>
+        (c.title || '').toLowerCase().includes(q) ||
+        (c.preview || '').toLowerCase().includes(q)
+      );
+    },
+
+    async init() {
+      await Promise.all([this.loadModels(), this.loadConversations()]);
+      // textarea 自适应高度
+      this.$watch('input', () => {
+        this.$nextTick(() => {
+          const el = this.$refs.composer;
+          if (el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+          }
+        });
+      });
+    },
+
+    savePrefs() {
+      localStorage.setItem('jsa_chat_model', this.currentModel);
+      localStorage.setItem('jsa_chat_stream', this.streamMode ? '1' : '0');
+      localStorage.setItem('jsa_chat_md', this.renderMd ? '1' : '0');
+    },
+
+    fmtTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 60) return '刚刚';
+      if (diff < 3600) return Math.floor(diff/60) + '分前';
+      if (diff < 86400) return Math.floor(diff/3600) + '小时前';
+      if (diff < 604800) return Math.floor(diff/86400) + '天前';
+      return d.toLocaleDateString('zh-CN');
+    },
+
+    async loadModels() {
+      this.loadingModels = true;
+      try {
+        const r = await fetch('/api/chat/models');
+        if (r.ok) {
+          const d = await r.json();
+          this.models = d.data || [];
+          if (this.models.length && !this.models.includes(this.currentModel)) {
+            this.currentModel = this.models[0];
+          }
+        }
+      } catch(e) {} finally { this.loadingModels = false; }
+    },
+
+    async loadConversations() {
+      this.loadingConvs = true;
+      try {
+        const r = await fetch('/api/chat/conversations');
+        if (r.ok) {
+          const d = await r.json();
+          this.conversations = d.data || [];
+          const lastId = parseInt(localStorage.getItem('jsa_chat_last_conv') || '0');
+          if (lastId && this.conversations.find(c => c.id === lastId)) {
+            await this.selectConversation(lastId);
+          }
+        }
+      } catch(e) {} finally { this.loadingConvs = false; }
+    },
+
+    async selectConversation(id) {
+      if (this.currentId === id) return;
+      this.currentId = id;
+      this.messages = [];
+      this.error = '';
+      localStorage.setItem('jsa_chat_last_conv', id);
+      try {
+        const r = await fetch(`/api/chat/conversations/${id}/messages`);
+        if (r.ok) {
+          const d = await r.json();
+          this.messages = (d.data || []).map(m => ({
+            id: m.id, role: m.role, content: m.content,
+            model: m.model, elapsed_ms: m.elapsed_ms,
+          }));
+          this.$nextTick(() => this.scrollToBottom());
+        }
+      } catch(e) {}
+      const conv = this.conversations.find(c => c.id === id);
+      if (conv && conv.model) this.currentModel = conv.model;
+    },
+
+    async newConversation(initialMsg) {
+      const r = await fetch('/api/chat/conversations', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({model:this.currentModel, title: initialMsg ? initialMsg.slice(0,40) : '新对话'}),
+      });
+      if (!r.ok) { this.error = '创建会话失败'; return null; }
+      const c = await r.json();
+      this.conversations.unshift(c);
+      this.currentId = c.id;
+      this.messages = [];
+      localStorage.setItem('jsa_chat_last_conv', c.id);
+      if (initialMsg) {
+        this.input = initialMsg;
+        await this.$nextTick();
+        await this.send();
+      }
+      return c;
+    },
+
+    async newConversationWith(msg) { await this.newConversation(msg); },
+
+    async quickSend(text) {
+      if (!this.currentId) { await this.newConversation(text); return; }
+      this.input = text;
+      await this.$nextTick();
+      await this.send();
+    },
+
+    async togglePin(c) {
+      const r = await fetch(`/api/chat/conversations/${c.id}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({pinned: !c.pinned}),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        Object.assign(c, updated);
+        this.conversations.sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0) || new Date(b.updated_at)-new Date(a.updated_at));
+      }
+    },
+
+    async renameConversation(c) {
+      const name = prompt('重命名对话：', c.title);
+      if (!name || name === c.title) return;
+      const r = await fetch(`/api/chat/conversations/${c.id}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({title: name}),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        Object.assign(c, updated);
+      }
+    },
+
+    async deleteConversation(c) {
+      if (!confirm(`删除对话「${c.title}」？`)) return;
+      const r = await fetch(`/api/chat/conversations/${c.id}`, {method:'DELETE'});
+      if (r.ok) {
+        this.conversations = this.conversations.filter(x => x.id !== c.id);
+        if (this.currentId === c.id) {
+          this.currentId = null;
+          this.messages = [];
+        }
+      }
+    },
+
+    onModelChange() {
+      this.savePrefs();
+      if (this.currentId) {
+        fetch(`/api/chat/conversations/${this.currentId}`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({model: this.currentModel}),
+        }).then(r => r.json()).then(updated => {
+          const c = this.conversations.find(x => x.id === this.currentId);
+          if (c) Object.assign(c, updated);
+        });
+      }
+    },
+
+    async send() {
+      if (this.loading) {
+        if (this.abortCtl) this.abortCtl.abort();
+        return;
+      }
+      if (!this.currentId) { this.error = '请先新建或选择对话'; return; }
+      const text = this.input.trim();
+      if (!text) return;
+      this.error = '';
+      this.messages.push({role:'user', content:text, model:this.currentModel});
+      this.input = '';
+      this.loading = true;
+      this.$nextTick(() => this.scrollToBottom());
+      try {
+        if (this.streamMode) await this.streamChat(text);
+        else await this.blockChat(text);
+        this.refreshCurrentConv();
+      } catch(e) {
+        this.error = e.message || String(e);
+        this.messages.push({role:'assistant', content:'[ERROR] ' + this.error, model:this.currentModel});
+      } finally {
+        this.loading = false;
+        this.abortCtl = null;
+        this.$nextTick(() => this.scrollToBottom());
+      }
+    },
+
+    async blockChat(text) {
+      const r = await fetch(`/api/chat/conversations/${this.currentId}/chat`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({content:text}),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(()=>({}));
+        throw new Error(d.detail || 'HTTP '+r.status);
+      }
+      const d = await r.json();
+      this.messages.push({
+        role:'assistant', content:d.content, model:d.model, elapsed_ms:d.elapsed_ms,
+      });
+    },
+
+    async streamChat(text) {
+      this.abortCtl = new AbortController();
+      const resp = await fetch(`/api/chat/conversations/${this.currentId}/stream`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({content:text}),
+        signal:this.abortCtl.signal,
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(()=>({}));
+        throw new Error(d.detail || 'HTTP '+resp.status);
+      }
+      if (!resp.body) throw new Error('no stream support');
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      this.messages.push({role:'assistant', content:'', model:this.currentModel, _raw:''});
+      const aiIdx = this.messages.length - 1;
+      let rawAcc = '';
+      this.$nextTick(() => this.scrollToBottom());
+
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, {stream:true});
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t.startsWith('data:')) continue;
+          const data = t.slice(5).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const j = JSON.parse(data);
+            if (j.error) { rawAcc += '\n\n[ERROR] '+j.error; continue; }
+            const delta = (j.choices||[{}])[0].delta || {};
+            if (delta.content) {
+              rawAcc += delta.content;
+              const content = this.showReasoning ? rawAcc : this.stripThink(rawAcc);
+              this.messages.splice(aiIdx, 1, {
+                role:'assistant', content, model:this.currentModel, _raw:rawAcc,
+              });
+              this.$nextTick(() => this.scrollToBottom());
+            }
+          } catch(e) {}
+        }
+      }
+      if (!rawAcc) {
+        this.messages.splice(aiIdx, 1, {role:'assistant', content:'(空响应)', model:this.currentModel});
+      }
+    },
+
+    async refreshCurrentConv() {
+      if (!this.currentId) return;
+      const r = await fetch(`/api/chat/conversations`);
+      if (r.ok) {
+        const d = await r.json();
+        const all = d.data || [];
+        const curr = all.find(c => c.id === this.currentId);
+        if (curr) {
+          const idx = this.conversations.findIndex(c => c.id === this.currentId);
+          if (idx >= 0) Object.assign(this.conversations[idx], curr);
+        }
+        this.conversations.sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0) || new Date(b.updated_at)-new Date(a.updated_at));
+      }
+    },
+
+    stripThink(s) {
+      return s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<\/?think>/g, '').trim();
+    },
+
+    renderContent(content) {
+      if (!content) return '';
+      if (content.startsWith('[ERROR]')) {
+        return '<span style="color:var(--error)">' + this.escapeHtml(content) + '</span>';
+      }
+      if (this.renderMd && typeof marked !== 'undefined') {
+        try {
+          let src = content;
+          if (this.showReasoning) {
+            src = src.replace(/<think>([\s\S]*?)<\/think>/g, '<div class="reasoning">$1</div>');
+            src = src.replace(/<\/?think>/g, '');
+          } else {
+            src = src.replace(/<think>[\s\S]*?<\/think>/g, '');
+            src = src.replace(/<\/?think>/g, '');
+          }
+          return marked.parse(src);
+        } catch(e) {}
+      }
+      let s = this.escapeHtml(content);
+      s = s.replace(/&lt;\/?think&gt;/g, '');
+      s = s.replace(/```(\w*)\n([\s\S]*?)```/g, (m,l,c) => '<pre><code>'+c.replace(/&amp;/g,'&')+'</code></pre>');
+      s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      return s;
+    },
+
+    escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    },
+
+    async copyMessage(idx) {
+      const m = this.messages[idx];
+      if (!m) return;
+      try {
+        await navigator.clipboard.writeText(m.content);
+        this.copied = idx;
+        setTimeout(() => { if (this.copied === idx) this.copied = -1; }, 2000);
+      } catch(e) {
+        const ta = document.createElement('textarea');
+        ta.value = m.content; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); this.copied = idx;
+          setTimeout(() => { if (this.copied === idx) this.copied = -1; }, 2000);
+        } catch(e2) {}
+        document.body.removeChild(ta);
+      }
+    },
+
+    scrollToBottom() {
+      const el = this.$refs.stream;
+      if (el) el.scrollTop = el.scrollHeight;
+    },
+  };
+}
+</script>
+{% endblock %}

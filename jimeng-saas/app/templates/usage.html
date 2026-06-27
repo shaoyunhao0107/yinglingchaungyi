@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}用量历史 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">用量历史</h1>
+    <div class="page-subtitle">最近 100 条 credits 变动记录</div>
+  </div>
+  <a href="/billing" class="btn btn-secondary">← 返回账单</a>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <table>
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>事件</th>
+        <th>变动</th>
+        <th>任务</th>
+        <th>备注</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="text-xs text-tertiary mono">{{ e.created_at.strftime('%m-%d %H:%M:%S') }}</td>
+        <td>
+          {% if e.event_type == 'image_gen' %}🖼️ 图片生成
+          {% elif e.event_type == 'video_gen' %}🎬 视频生成
+          {% elif e.event_type == 'refund' %}↩️ 退款
+          {% else %}{{ e.event_type }}{% endif %}
+        </td>
+        <td class="mono {% if e.cost_credits > 0 %}status-failed{% elif e.cost_credits < 0 %}status-done{% endif %}">
+          {{ '+' if e.cost_credits > 0 }}{{ e.cost_credits }} credits
+        </td>
+        <td class="mono text-xs">{{ '#'+e.job_id|string if e.job_id else '—' }}</td>
+        <td class="text-xs text-tertiary">{{ e.note or '' }}</td>
+      </tr>
+      {% endfor %}
+      {% if not events %}
+      <tr><td colspan="5" class="text-center text-tertiary" style="padding:32px">还没有用量记录</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

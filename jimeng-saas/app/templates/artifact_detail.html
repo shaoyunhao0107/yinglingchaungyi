@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}作品详情 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="mb-lg">
+  <a href="/library" class="text-secondary text-sm">← 返回媒体库</a>
+</div>
+
+<div class="grid-2 mb-xl" style="grid-template-columns:1fr 360px">
+  <div class="card" style="padding:0;overflow:hidden;background:var(--bg-sunken)">
+    {% if artifact.kind == 'video' %}
+    <video src="{{ artifact.storage_url }}" controls style="width:100%;display:block"></video>
+    {% else %}
+    <img src="{{ artifact.storage_url }}" alt="{{ artifact.title or '' }}" style="width:100%;display:block">
+    {% endif %}
+  </div>
+
+  <div>
+    <h1 class="page-title mb-md" style="font-size:24px">{{ artifact.title or '未命名作品' }}</h1>
+    {% if job %}
+    <div class="card mb-lg">
+      <div class="param-label">提示词</div>
+      <div class="text-sm" style="line-height:1.7;margin-top:6px">{{ job.prompt }}</div>
+
+      <div class="grid-2 mt-lg" style="margin-top:16px;gap:8px 24px">
+        <div>
+          <div class="param-label">模型</div>
+          <div class="mono text-sm">
+            {% set params_json = job.params_json | from_json %}
+            {{ params_json.model | model_name if params_json.model else '—' }}
+          </div>
+        </div>
+        <div>
+          <div class="param-label">比例</div>
+          <div class="mono text-sm">{{ params_json.ratio if params_json.ratio else '—' }}</div>
+        </div>
+        <div>
+          <div class="param-label">分辨率</div>
+          <div class="mono text-sm">{{ params_json.resolution if params_json.resolution else '—' }}</div>
+        </div>
+        <div>
+          <div class="param-label">生成时间</div>
+          <div class="mono text-sm">{{ artifact.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="flex gap-md" x-data="artifactDetail({{ artifact.id }}, {{ job.id if job else 'null' }})">
+      <a href="{{ artifact.storage_url }}?download=1" class="btn btn-secondary btn-sm" download>⬇️ 下载</a>
+      {% if job %}
+      <button class="btn btn-primary btn-sm" @click="iterate()" :disabled="iterating"
+              title="用同样的提示词和参数，再生成 4 张变体">
+        <span x-show="!iterating">✨ 再生成 4 张</span>
+        <span x-show="iterating">提交中…</span>
+      </button>
+      {% endif %}
+      <button class="btn btn-danger btn-sm" @click="softDelete()" :disabled="deleting"
+              title="移入回收站，30 天内可恢复">
+        <span x-show="!deleting">🗑️ 删除</span>
+        <span x-show="deleting">删除中…</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if related %}
+<h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700;margin-bottom:14px">
+  变体树 <span class="text-xs text-tertiary" style="font-weight:400">（同源迭代生成的作品）</span>
+</h3>
+<div class="results-grid">
+  {% for r in related %}
+  <a href="/library/{{ r.id }}" class="result-card">
+    <img src="{{ r.thumbnail_url or r.storage_url }}" alt="">
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+
+function artifactDetail(artifactId, jobId) {
+  return {
+    artifactId, jobId,
+    iterating: false,
+    deleting: false,
+    async iterate() {
+      if (!this.jobId) return;
+      const mod = prompt('（可选）输入修改指令，附加到原提示词。留空则用原提示词重生成：');
+      if (mod === null) return;  // user cancelled
+      this.iterating = true;
+      try {
+        const resp = await fetch(`/api/jobs/${this.jobId}/iterate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + ACCESS_TOKEN,
+          },
+          body: JSON.stringify({ modify_prompt: mod.trim() }),
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (resp.status === 402) {
+          alert('额度不足，无法生成'); return;
+        }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          alert(err.detail || '提交失败'); return;
+        }
+        const job = await resp.json();
+        alert(`已创建任务 #${job.id}，正在后台生成。完成后可在媒体库查看。`);
+        // optionally jump to generate page to watch live
+        window.location.href = '/generate';
+      } catch (e) {
+        alert('网络错误：' + e.message);
+      } finally {
+        this.iterating = false;
+      }
+    },
+    async softDelete() {
+      if (!confirm('确定删除这个作品？30 天内可在回收站恢复。')) return;
+      this.deleting = true;
+      try {
+        const resp = await fetch(`/api/artifacts/${this.artifactId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + ACCESS_TOKEN },
+        });
+        if (resp.ok) {
+          window.location.href = '/library';
+        } else {
+          alert('删除失败');
+        }
+      } catch (e) {
+        alert('网络错误：' + e.message);
+      } finally {
+        this.deleting = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

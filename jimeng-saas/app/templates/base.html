@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}盈灵创意{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a href="/" class="logo" style="text-decoration:none">
+      <div class="logo-dot"></div>
+      <span>盈灵创意</span>
+    </a>
+    <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
+      <span class="nav-icon">🎯</span><span>仪表板</span>
+    </a>
+    <a href="/generate" class="nav-item {% if request.url.path == '/generate' %}active{% endif %}">
+      <span class="nav-icon">✨</span><span>生成</span>
+    </a>
+    <a href="/library" class="nav-item {% if request.url.path.startswith('/library') %}active{% endif %}">
+      <span class="nav-icon">🖼️</span><span>媒体库</span>
+    </a>
+    <div class="nav-section-label">创作</div>
+    <a href="/templates" class="nav-item {% if request.url.path == '/templates' %}active{% endif %}">
+      <span class="nav-icon">📐</span><span>模板</span>
+    </a>
+    <a href="/chat" class="nav-item {% if request.url.path == '/chat' %}active{% endif %}">
+      <span class="nav-icon">💬</span><span>AI 对话</span>
+    </a>
+    <div class="nav-section-label">账户</div>
+    <a href="/billing" class="nav-item {% if request.url.path == '/billing' %}active{% endif %}">
+      <span class="nav-icon">💳</span><span>账单</span>
+    </a>
+    <a href="/usage" class="nav-item {% if request.url.path == '/usage' %}active{% endif %}">
+      <span class="nav-icon">📊</span><span>用量</span>
+    </a>
+    <a href="/settings" class="nav-item {% if request.url.path == '/settings' %}active{% endif %}">
+      <span class="nav-icon">⚙️</span><span>设置</span>
+    </a>
+    {% if user and user.is_admin %}
+    <div class="nav-section-label">管理</div>
+    <a href="/admin/health" class="nav-item {% if request.url.path == '/admin/health' %}active{% endif %}">
+      <span class="nav-icon">💓</span><span>系统健康</span>
+    </a>
+    <a href="/admin/credentials" class="nav-item {% if request.url.path == '/admin/credentials' %}active{% endif %}">
+      <span class="nav-icon">🛡️</span><span>凭证池</span>
+    </a>
+    <a href="/admin/jobs" class="nav-item {% if request.url.path == '/admin/jobs' %}active{% endif %}">
+      <span class="nav-icon">📋</span><span>所有任务</span>
+    </a>
+    <a href="/admin/audit" class="nav-item {% if request.url.path == '/admin/audit' %}active{% endif %}">
+      <span class="nav-icon">📜</span><span>审计日志</span>
+    </a>
+    {% endif %}
+
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <div class="user-avatar">{{ (user.name[:1] if user else '?').upper() }}</div>
+        <div style="min-width:0">
+          <div style="font-size:13px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis">{{ user.name if user else '未登录' }}</div>
+          <div><span class="plan-tag">{{ user.plan_tier if user else '' }}</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-narrow">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+{% block scripts %}{% endblock %}
+
+<script>
+// ─── Global auth helper ─────────────────────────────────────
+// On any page load, ensure we have an access token in sessionStorage.
+// If not, try to refresh via the http-only cookie; if that fails, go to /login.
+(async function ensureAuth() {
+  let tok = sessionStorage.getItem('jsa_access');
+  if (tok) {
+    // Quick validate: call /api/me, if 401 try refresh.
+    try {
+      const r = await fetch('/api/me', {headers: {'Authorization': 'Bearer ' + tok}});
+      if (r.ok) return;
+    } catch (e) {}
+  }
+  // Try refresh via cookie.
+  try {
+    const r = await fetch('/api/auth/refresh', {method: 'POST'});
+    if (r.ok) {
+      const d = await r.json();
+      sessionStorage.setItem('jsa_access', d.access);
+      return;
+    }
+  } catch (e) {}
+  // Refresh failed → must log in again. Skip if already on a public page.
+  const p = window.location.pathname;
+  if (p !== '/login' && p !== '/register') {
+    window.location.href = '/login';
+  }
+})();
+
+// Wrap fetch so /api/* calls auto-add Authorization and auto-refresh on 401.
+const _origFetch = window.fetch;
+window.fetch = function(input, init) {
+  init = init || {};
+  const url = typeof input === 'string' ? input : (input.url || '');
+  const tok = sessionStorage.getItem('jsa_access');
+  // Only auto-add token for /api/* URLs that aren't auth endpoints,
+  // AND only if the caller didn't already set Authorization.
+  if (tok && url.startsWith('/api/') && !url.startsWith('/api/auth/')) {
+    // Normalize headers to a plain object so we don't lose Content-Type.
+    let existingHeaders = {};
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((v, k) => { existingHeaders[k] = v; });
+    } else if (typeof init.headers === 'object' && init.headers !== null) {
+      existingHeaders = Object.assign({}, init.headers);
+    }
+    if (!existingHeaders['Authorization'] && !existingHeaders['authorization']) {
+      existingHeaders['Authorization'] = 'Bearer ' + tok;
+      init.headers = existingHeaders;
+    }
+  }
+  return _origFetch.call(this, input, init).then(async (resp) => {
+    if (resp.status === 401 && url.startsWith('/api/') && !url.startsWith('/api/auth/')) {
+      // Try one refresh, then replay the original request once.
+      try {
+        const rr = await _origFetch('/api/auth/refresh', {method: 'POST'});
+        if (rr.ok) {
+          const d = await rr.json();
+          sessionStorage.setItem('jsa_access', d.access);
+          // Replay with new token.
+          let h = {};
+          if (init.headers instanceof Headers) {
+            init.headers.forEach((v, k) => { h[k] = v; });
+          } else if (typeof init.headers === 'object' && init.headers !== null) {
+            h = Object.assign({}, init.headers);
+          }
+          h['Authorization'] = 'Bearer ' + d.access;
+          init.headers = h;
+          return _origFetch.call(this, input, init);
+        }
+      } catch (e) {}
+      // Refresh failed → /login.
+      window.location.href = '/login';
+    }
+    return resp;
+  });
+};
+
+// ─── Auto-tokenize media src="/api/storage/..." ─────────────
+// <img>/<video> tags can't easily send Authorization, so append ?token=<access>
+// to all storage URLs. Re-runs on dynamic DOM changes via MutationObserver.
+function tokenizeStorageImgs() {
+  const tok = sessionStorage.getItem('jsa_access');
+  if (!tok) return;
+  document.querySelectorAll('img[src^="/api/storage/"], video[src^="/api/storage/"], source[src^="/api/storage/"]').forEach(el => {
+    const src = el.getAttribute('src');
+    if (!src.includes('token=')) {
+      el.setAttribute('src', src + (src.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(tok));
+    }
+  });
+}
+// Run once on load + observe mutations.
+tokenizeStorageImgs();
+const _imgObserver = new MutationObserver(() => tokenizeStorageImgs());
+_imgObserver.observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ['src']});
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}设置 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">设置</h1>
+    <div class="page-subtitle">账户信息与偏好</div>
+  </div>
+</div>
+
+<div class="card mb-lg">
+  <h3>个人资料</h3>
+  <div class="grid-2">
+    <div>
+      <div class="param-label">用户名</div>
+      <div class="text-sm">{{ user.name }}</div>
+    </div>
+    <div>
+      <div class="param-label">邮箱</div>
+      <div class="text-sm">{{ user.email }}</div>
+    </div>
+    <div>
+      <div class="param-label">用户 ID</div>
+      <div class="mono text-sm">{{ user.id }}</div>
+    </div>
+    <div>
+      <div class="param-label">注册时间</div>
+      <div class="mono text-sm">{{ user.created_at.strftime('%Y-%m-%d') }}</div>
+    </div>
+  </div>
+</div>
+
+{% if user.is_admin %}
+<div class="card">
+  <h3>API Keys</h3>
+  <p>用 API Key 通过 <code class="mono">/api/v1/*</code> 端点编程方式调用生成接口。</p>
+
+  <div class="flex gap-md mb-lg" style="align-items:flex-end">
+    <div style="flex:1">
+      <label class="form-label">新 Key 名称</label>
+      <input id="new-key-name" class="form-input" placeholder="如：自动化脚本">
+    </div>
+    <button class="btn btn-primary" onclick="createKey()">生成新 Key</button>
+  </div>
+
+  <div id="key-list">
+    <div class="text-center text-tertiary" style="padding:24px">加载中…</div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if user.is_admin %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+
+async function loadKeys() {
+  const resp = await fetch('/api/api-keys', {
+    headers: {'Authorization': 'Bearer ' + ACCESS_TOKEN}
+  });
+  if (resp.status === 401) { window.location.href = '/login'; return; }
+  const keys = await resp.json();
+  const el = document.getElementById('key-list');
+  if (!keys.length) {
+    el.innerHTML = '<div class="text-center text-tertiary" style="padding:24px">还没有 API Key</div>';
+    return;
+  }
+  el.innerHTML = `<table><thead><tr>
+    <th>名称</th><th>Key 前缀</th><th>上次使用</th><th>创建时间</th><th>操作</th>
+  </tr></thead><tbody>
+    ${keys.map(k => `<tr>
+      <td>${k.name}</td>
+      <td class="mono text-xs">${k.key_prefix}…</td>
+      <td class="text-xs text-tertiary">${k.last_used_at ? formatDate(k.last_used_at) : '—'}</td>
+      <td class="text-xs text-tertiary">${formatDate(k.created_at)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="revokeKey(${k.id})">吊销</button></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+async function createKey() {
+  const name = document.getElementById('new-key-name').value.trim();
+  if (!name) { alert('请输入 Key 名称'); return; }
+  const resp = await fetch('/api/api-keys', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+    body: JSON.stringify({name}),
+  });
+  if (!resp.ok) { alert('创建失败'); return; }
+  const data = await resp.json();
+  alert(`新 API Key（只显示这一次，请妥善保存）：\n\n${data.key}\n\n下次无法再看到完整 Key。`);
+  document.getElementById('new-key-name').value = '';
+  loadKeys();
+}
+
+async function revokeKey(id) {
+  if (!confirm('确定吊销这个 Key？使用它的所有请求将立即失败。')) return;
+  const resp = await fetch(`/api/api-keys/${id}`, {
+    method: 'DELETE', headers: {'Authorization': 'Bearer '+ACCESS_TOKEN}
+  });
+  if (resp.ok) loadKeys();
+  else alert('吊销失败');
+}
+
+loadKeys();
+</script>
+{% endif %}
+{% endblock %}

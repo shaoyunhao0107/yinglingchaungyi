@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}仪表板 — 盈灵创意{% endblock %}
+
+{% block content %}
+{% if not user %}
+<div class="empty-state" style="margin-top:80px">
+  <h3>请先登录</h3>
+  <p>要使用盈灵创意，请先登录或注册</p>
+  <div class="flex gap-md" style="justify-content:center">
+    <a href="/login" class="btn btn-primary">登录</a>
+    <a href="/register" class="btn btn-secondary">注册</a>
+  </div>
+</div>
+{% else %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">你好，{{ user.name }}</h1>
+    <div class="page-subtitle">今天想创作什么？</div>
+  </div>
+  <div class="quota-pill">本月剩余 <span class="num">{{ quota_remaining }}</span> credits</div>
+</div>
+
+<div class="grid-3 mb-xl">
+  <div class="stat-card">
+    <div class="stat-label">已生成作品</div>
+    <div class="stat-value">{{ artifact_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">完成任务</div>
+    <div class="stat-value">{{ succeeded_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">当前套餐</div>
+    <div class="stat-value" style="font-size:24px;text-transform:uppercase">{{ user.plan_tier }}</div>
+  </div>
+</div>
+
+<div class="flex-between mb-lg">
+  <h2 style="font-size:20px">最近任务</h2>
+  <a href="/generate" class="btn btn-primary">✨ 开始生成</a>
+</div>
+
+{% if recent_jobs %}
+<div class="card" style="padding:0;overflow:hidden">
+  <table>
+    <thead>
+      <tr>
+        <th>提示词</th>
+        <th>类型</th>
+        <th>状态</th>
+        <th>张数</th>
+        <th>时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in recent_jobs %}
+      <tr>
+        <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis">{{ j.prompt }}</td>
+        <td><span class="mono text-xs">{{ j.job_type }}</span></td>
+        <td>
+          <span class="status-pill status-{{ j.status }}">
+            {% if j.status == 'succeeded' %}已完成
+            {% elif j.status == 'running' %}生成中
+            {% elif j.status == 'queued' %}排队中
+            {% elif j.status == 'failed' %}失败
+            {% else %}{{ j.status }}{% endif %}
+          </span>
+        </td>
+        <td class="mono text-xs">{{ j.variation_count if j.variation_count else '—' }}</td>
+        <td class="text-xs text-tertiary">{{ j.created_at.strftime('%m-%d %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>欢迎来到盈灵创意</h3>
+  <p>这里还没有作品。开始你的第一次生成吧。</p>
+  <a href="/generate" class="btn btn-primary">✨ 创建第一张</a>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

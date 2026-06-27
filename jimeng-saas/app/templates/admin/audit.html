@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}审计日志 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📜 审计日志</h1>
+    <div class="page-subtitle">所有用户的关键操作记录 · 共 {{ total }} 条</div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <a href="/admin/audit" class="chip {% if not filter_action %}active{% endif %}">全部</a>
+  {% for a in actions %}
+  <a href="/admin/audit?action={{ a }}" class="chip {% if filter_action == a %}active{% endif %}">{{ a }}</a>
+  {% endfor %}
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <table>
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>用户</th>
+        <th>动作</th>
+        <th>目标</th>
+        <th>IP</th>
+        <th>详情</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="text-xs text-tertiary mono">{{ r.created_at.strftime('%m-%d %H:%M:%S') }}</td>
+        <td class="mono text-xs">#{{ r.user_id or '—' }}</td>
+        <td><code class="mono text-xs">{{ r.action }}</code></td>
+        <td class="text-xs">
+          {% if r.target_type %}{{ r.target_type }}{% endif %}
+          {% if r.target_id %}<span class="mono text-tertiary">#{{ r.target_id }}</span>{% endif %}
+        </td>
+        <td class="mono text-xs text-tertiary">{{ r.ip or '—' }}</td>
+        <td class="text-xs text-tertiary" style="max-width:300px;overflow:hidden;text-overflow:ellipsis">
+          {{ r.metadata_json or r.note or '' }}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not rows %}
+      <tr><td colspan="6" class="text-center text-tertiary" style="padding:32px">还没有日志</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

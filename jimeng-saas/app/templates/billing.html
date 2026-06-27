@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}账单 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">账单与用量</h1>
+    <div class="page-subtitle">管理你的套餐和 credits</div>
+  </div>
+</div>
+
+<div class="grid-3 mb-xl">
+  <div class="stat-card">
+    <div class="stat-label">当前套餐</div>
+    <div class="stat-value" style="text-transform:uppercase">{{ user.plan_tier }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">本月已用</div>
+    <div class="stat-value">{{ user.quota_used }}</div>
+    <div class="text-xs text-tertiary mt-md" style="margin-top:4px">/ {{ user.quota_limit }} credits</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">下次重置</div>
+    <div class="stat-value" style="font-size:18px;font-family:'JetBrains Mono'">{{ user.quota_reset_at.strftime('%Y-%m-%d') }}</div>
+  </div>
+</div>
+
+<div class="card mb-lg">
+  <div class="progress" style="height:12px">
+    <div class="progress-bar" style="width:{{ (user.quota_used / user.quota_limit * 100) if user.quota_limit else 0 }}%"></div>
+  </div>
+  <div class="flex-between mt-md" style="margin-top:8px">
+    <span class="text-sm text-secondary">{{ user.quota_used }} / {{ user.quota_limit }} credits</span>
+    <span class="text-sm text-tertiary mono">{{ ((user.quota_used / user.quota_limit * 100) | round(1)) if user.quota_limit else 0 }}%</span>
+  </div>
+</div>
+
+<h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700;margin-bottom:14px">升级套餐</h3>
+<div class="grid-3">
+  <div class="card" style="text-align:center">
+    <h3 style="font-family:'Cabinet Grotesk'">Hobby</h3>
+    <div class="stat-value" style="margin:12px 0">¥29<span style="font-size:13px;color:var(--text-tertiary)">/月</span></div>
+    <p>100 credits/月 · 适合个人创作者</p>
+    <button class="btn btn-secondary btn-block" onclick="alert('Stripe 集成在 v2')">升级到 Hobby</button>
+  </div>
+  <div class="card" style="text-align:center;border-color:var(--accent-solid);box-shadow:0 0 0 1px var(--accent-solid)">
+    <h3 style="font-family:'Cabinet Grotesk'">Pro</h3>
+    <div class="stat-value" style="margin:12px 0">¥99<span style="font-size:13px;color:var(--text-tertiary)">/月</span></div>
+    <p>500 credits/月 · 批量 CSV · 模板</p>
+    <button class="btn btn-primary btn-block" onclick="alert('Stripe 集成在 v2')">升级到 Pro</button>
+  </div>
+  <div class="card" style="text-align:center">
+    <h3 style="font-family:'Cabinet Grotesk'">Team</h3>
+    <div class="stat-value" style="margin:12px 0">¥299<span style="font-size:13px;color:var(--text-tertiary)">/月起</span></div>
+    <p>2000+ credits · 多人协作（v2）</p>
+    <button class="btn btn-secondary btn-block" onclick="alert('团队套餐在 v2')">联系我们</button>
+  </div>
+</div>
+{% endblock %}

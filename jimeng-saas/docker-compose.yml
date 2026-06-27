@@ -1,0 +1,75 @@
+# Jimeng SaaS — full prod stack: web + worker + redis + postgres.
+# Usage: docker compose up -d
+#
+# Requires a `.env` file with:
+#   JSA_SECRET_KEY=<long random string>
+#   JSA_MASTER_KEY=<Fernet key from `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`>
+# For prod, also set JSA_DB_URL to point at the `db` service below.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jsa
+      POSTGRES_PASSWORD: jsa_pass_2026
+      POSTGRES_DB: jimeng_saas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jsa -d jimeng_saas"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # RQ doesn't need persistence; if you want durable queues, add a volume.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build: .
+    image: jimeng-saas:latest
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # Override .env to use the docker-compose internal services.
+      JSA_DB_URL: postgresql://jsa:jsa_pass_2026@db:5432/jimeng_saas
+      JSA_REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Persist uploaded/generated artifacts to a named volume.
+      - artifacts:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: jimeng-saas:latest
+    command: ["python", "-m", "rq.cli", "worker", "jimeng", "--url", "redis://redis:6379/0", "--worker-class", "rq.worker.SimpleWorker"]
+    env_file: .env
+    environment:
+      JSA_DB_URL: postgresql://jsa:jsa_pass_2026@db:5432/jimeng_saas
+      JSA_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - artifacts:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  artifacts:

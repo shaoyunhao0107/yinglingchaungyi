@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}所有任务（管理员）— 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">所有任务</h1>
+    <div class="page-subtitle">管理员视图 · 跨用户 · 共 {{ total }} 条</div>
+  </div>
+  <a href="/admin/credentials" class="btn btn-secondary">← 凭证池</a>
+</div>
+
+<div class="filter-bar">
+  <a href="/admin/jobs" class="chip {% if not filter_status %}active{% endif %}">全部</a>
+  <a href="/admin/jobs?status_=queued" class="chip {% if filter_status == 'queued' %}active{% endif %}">排队中</a>
+  <a href="/admin/jobs?status_=running" class="chip {% if filter_status == 'running' %}active{% endif %}">生成中</a>
+  <a href="/admin/jobs?status_=succeeded" class="chip {% if filter_status == 'succeeded' %}active{% endif %}">已完成</a>
+  <a href="/admin/jobs?status_=failed" class="chip {% if filter_status == 'failed' %}active{% endif %}">失败</a>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>用户</th>
+        <th>类型</th>
+        <th>提示词</th>
+        <th>状态</th>
+        <th>张数</th>
+        <th>提交时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job, user_name in rows %}
+      <tr>
+        <td class="mono">#{{ job.id }}</td>
+        <td class="text-xs">{{ user_name or '—' }} <span class="text-tertiary mono">(#{{ job.user_id }})</span></td>
+        <td><span class="mono text-xs">{{ job.job_type }}</span></td>
+        <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis">{{ job.prompt }}</td>
+        <td>
+          <span class="status-pill status-{{ job.status }}">
+            {% if job.status == 'succeeded' %}已完成
+            {% elif job.status == 'running' %}生成中
+            {% elif job.status == 'queued' %}排队中
+            {% elif job.status == 'failed' %}失败
+            {% else %}{{ job.status }}{% endif %}
+          </span>
+        </td>
+        <td class="mono text-xs">{{ job.variation_count if job.variation_count else '—' }}</td>
+        <td class="text-xs text-tertiary">{{ job.created_at.strftime('%m-%d %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+      {% if not rows %}
+      <tr><td colspan="7" class="text-center text-tertiary" style="padding:32px">还没有任务</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

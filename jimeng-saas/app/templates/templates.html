@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}模板 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📐 模板</h1>
+    <div class="page-subtitle">保存常用的参数组合，一键复用</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-xl">
+  <!-- Create new template -->
+  <div class="card">
+    <h3>新建模板</h3>
+    <p>给一组参数起个名字，下次直接套用。</p>
+    <form id="tpl-form">
+      <div class="form-field">
+        <label class="form-label">模板名称</label>
+        <input id="tpl-name" class="form-input" placeholder="如：公众号封面 16:9">
+      </div>
+      <div class="form-field">
+        <label class="form-label">类型</label>
+        <select id="tpl-type" class="form-select" onchange="updateModelOptions()">
+          <option value="image">图片</option>
+          <option value="video">视频</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">模型</label>
+        <select id="tpl-model" class="form-select"></select>
+      </div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-field">
+          <label class="form-label">比例</label>
+          <select id="tpl-ratio" class="form-select">
+            <option value="">默认</option>
+            <option value="1:1">1:1</option>
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+            <option value="21:9">21:9</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">分辨率</label>
+          <select id="tpl-resolution" class="form-select">
+            <option value="">默认</option>
+            <option value="1k">1K</option>
+            <option value="2k">2K</option>
+            <option value="4k">4K</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">风格前缀（可选）</label>
+        <input id="tpl-style" class="form-input" placeholder="如：电影感, 胶片质感, ">
+      </div>
+      <div class="form-field">
+        <label class="form-label">负向提示词（可选）</label>
+        <input id="tpl-neg" class="form-input" placeholder="如：模糊, 变形, 低质量">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">保存模板</button>
+    </form>
+  </div>
+
+  <!-- List of existing templates -->
+  <div>
+    <h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700;margin-bottom:14px">已保存的模板</h3>
+    {% if templates %}
+    <div id="tpl-list">
+      {% for t in templates %}
+      <div class="card mb-md" style="padding:14px" data-tpl-id="{{ t.id }}">
+        <div class="flex-between mb-md">
+          <div>
+            <div style="font-weight:600;font-size:15px">{{ t.name }}</div>
+            <div class="text-xs text-tertiary mono" style="margin-top:4px">
+              {{ t.model }} · {{ t.ratio or '默认' }} · {{ t.resolution or '默认' }}
+              {% if t.last_used_at %} · 上次使用 {{ t.last_used_at.strftime('%m-%d %H:%M') }}{% endif %}
+            </div>
+          </div>
+          <div class="flex gap-sm">
+            <button class="btn btn-secondary btn-sm" onclick="applyTemplate({{ t.id }})">应用到生成</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTemplate({{ t.id }})">删除</button>
+          </div>
+        </div>
+        {% if t.style_prefix or t.negative_prompt %}
+        <div class="text-xs text-tertiary" style="margin-top:6px">
+          {% if t.style_prefix %}<span style="margin-right:12px">风格: {{ t.style_prefix }}</span>{% endif %}
+          {% if t.negative_prompt %}<span>负向: {{ t.negative_prompt }}</span>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <h3>还没有模板</h3>
+      <p>保存你的第一组常用参数，下次生成更高效</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACCESS_TOKEN = sessionStorage.getItem('jsa_access');
+const IMAGE_MODELS = [{% for m in image_models %}{id:"{{ m.id }}",name:"{{ m.name }}"}{% if not loop.last %},{% endif %}{% endfor %}];
+const VIDEO_MODELS = [{% for m in video_models %}{id:"{{ m.id }}",name:"{{ m.name }}"}{% if not loop.last %},{% endif %}{% endfor %}];
+
+function updateModelOptions() {
+  const type = document.getElementById('tpl-type').value;
+  const sel = document.getElementById('tpl-model');
+  const models = type === 'video' ? VIDEO_MODELS : IMAGE_MODELS;
+  sel.innerHTML = models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+}
+updateModelOptions();
+
+document.getElementById('tpl-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('tpl-name').value.trim(),
+    provider_name: 'jimeng',
+    model: document.getElementById('tpl-model').value,
+    ratio: document.getElementById('tpl-ratio').value || null,
+    resolution: document.getElementById('tpl-resolution').value || null,
+    style_prefix: document.getElementById('tpl-style').value.trim() || null,
+    negative_prompt: document.getElementById('tpl-neg').value.trim() || null,
+  };
+  if (!body.name) { alert('请输入模板名称'); return; }
+  const r = await fetch('/api/templates', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) { window.location.reload(); } else { alert('保存失败'); }
+});
+
+async function applyTemplate(id) {
+  // Mark as used + tell generate page to preload (via sessionStorage).
+  const r = await fetch(`/api/templates/${id}/use`, {
+    method: 'POST', headers: {'Authorization':'Bearer '+ACCESS_TOKEN}
+  });
+  if (r.ok) {
+    const tpl = await r.json();
+    sessionStorage.setItem('jsa_apply_template', JSON.stringify(tpl));
+    window.location.href = '/generate';
+  } else {
+    alert('应用失败');
+  }
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('确定删除这个模板？')) return;
+  const r = await fetch(`/api/templates/${id}`, {
+    method: 'DELETE', headers: {'Authorization':'Bearer '+ACCESS_TOKEN}
+  });
+  if (r.ok) {
+    const card = document.querySelector(`[data-tpl-id="${id}"]`);
+    if (card) card.remove();
+  } else {
+    alert('删除失败');
+  }
+}
+</script>
+{% endblock %}

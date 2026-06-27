@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# 环境与密钥
+.env
+.env.local
+.env.*.local
+
+# 数据（用户内容 + 上传，永不提交）
+data/
+*.db
+*.db-journal
+
+# 构建产物
+dist/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# 日志
+*.log
+
+# 备份（本地保留用）
+backups/

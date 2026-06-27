@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Jimeng SaaS — Design System Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #0a0a0c;
+    --bg-elevated: #131316;
+    --bg-sunken: #050506;
+    --text-primary: #f5f5f7;
+    --text-secondary: #c2c7d0;
+    --text-tertiary: #7a7f8a;
+    --text-quaternary: #4a4d55;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-standard: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.18);
+    --accent-from: #8b5cf6;
+    --accent-to: #ec4899;
+    --accent-solid: #a855f7;
+    --accent-hover: #9333ea;
+    --accent-glow: rgba(168,85,247,0.20);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-family: 'Plus Jakarta Sans', 'PingFang SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif; background: var(--bg-base); color: var(--text-primary); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; padding: 48px 32px; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1, h2, h3 { font-family: 'Cabinet Grotesk', 'PingFang SC', sans-serif; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: "tnum"; }
+
+  /* HERO */
+  .hero {
+    text-align: center;
+    padding: 64px 32px;
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(139,92,246,0.18), transparent 50%),
+      radial-gradient(ellipse at 70% 70%, rgba(236,72,153,0.15), transparent 50%),
+      var(--bg-sunken);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -2px;
+    background: conic-gradient(from 180deg, transparent, rgba(168,85,247,0.1), transparent);
+    animation: spin 12s linear infinite; z-index: 0;
+  }
+  .hero > * { position: relative; z-index: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hero h1 { font-size: 56px; margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero p { color: var(--text-secondary); font-size: 19px; max-width: 560px; margin: 0 auto; }
+  .badge {
+    display: inline-block; padding: 4px 10px; border-radius: var(--radius-sm);
+    background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3);
+    color: var(--accent-solid); font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; margin-bottom: 24px;
+  }
+
+  /* SECTION */
+  section { margin-bottom: 56px; }
+  section > h2 { font-size: 28px; margin-bottom: 20px; color: var(--text-primary); }
+  section > h2 .num { color: var(--accent-solid); margin-right: 12px; font-family: 'JetBrains Mono', monospace; font-size: 18px; vertical-align: middle; }
+
+  /* COLOR PALETTE */
+  .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .swatch {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .swatch-chip { height: 80px; }
+  .swatch-meta { padding: 10px 12px; }
+  .swatch-meta .name { font-size: 13px; font-weight: 600; }
+  .swatch-meta .hex { font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; }
+
+  /* BUTTONS */
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    padding: 10px 18px; border-radius: var(--radius-md);
+    border: 1px solid transparent; cursor: pointer; transition: all 180ms cubic-bezier(0.4,0,0.2,1);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+    color: white;
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px -4px var(--accent-glow); }
+  .btn-secondary {
+    background: rgba(255,255,255,0.05); color: var(--text-primary);
+    border-color: var(--border-standard);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.08); border-color: var(--border-strong); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+  .btn-danger { background: rgba(239,68,68,0.12); color: var(--error); border-color: rgba(239,68,68,0.3); }
+
+  /* APP MOCKUP */
+  .app-shell {
+    background: var(--bg-sunken); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl); overflow: hidden; display: grid;
+    grid-template-columns: 220px 1fr; min-height: 580px;
+  }
+  .sidebar {
+    background: var(--bg-base); padding: 20px 14px;
+    border-right: 1px solid var(--border-subtle);
+  }
+  .logo { display: flex; align-items: center; gap: 8px; padding: 6px 8px 18px; font-family: 'Cabinet Grotesk', sans-serif; font-weight: 800; font-size: 17px; }
+  .logo-dot { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--accent-from), var(--accent-to)); }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-radius: var(--radius-md); color: var(--text-tertiary);
+    font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: 2px;
+    transition: all 120ms;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+  .nav-item.active { background: rgba(168,85,247,0.12); color: var(--accent-solid); }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.9; }
+  .nav-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-quaternary); padding: 18px 10px 6px; font-weight: 600; }
+
+  .main { padding: 24px; }
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .page-title { font-size: 24px; font-weight: 800; font-family: 'Cabinet Grotesk', sans-serif; }
+  .quota-pill {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border-standard);
+    padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .quota-pill .num { color: var(--accent-solid); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  /* GENERATION CANVAS */
+  .canvas { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+  .prompt-zone {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg); padding: 16px;
+  }
+  .prompt-label { font-size: 12px; color: var(--text-tertiary); margin-bottom: 8px; font-weight: 600; }
+  .prompt-input {
+    width: 100%; min-height: 88px; background: var(--bg-sunken);
+    border: 1px solid var(--border-standard); border-radius: var(--radius-md);
+    color: var(--text-primary); padding: 12px; font-family: inherit; font-size: 14px;
+    resize: vertical; outline: none;
+  }
+  .prompt-input:focus { border-color: var(--accent-solid); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .prompt-toolbar { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .batch-hint { font-size: 12px; color: var(--text-tertiary); }
+  .batch-hint .mono { color: var(--text-secondary); }
+
+  .results-zone { margin-top: 16px; }
+  .results-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .result-card {
+    background: var(--bg-sunken); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); aspect-ratio: 1; position: relative;
+    overflow: hidden; transition: all 240ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .result-card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+  .result-card .placeholder {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text-quaternary); font-size: 12px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(236,72,153,0.04));
+  }
+  .result-card.generating .placeholder::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, var(--accent-glow), transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+  .result-card.done {
+    background: linear-gradient(135deg, #2a1a3e, #3e1a2e);
+  }
+  .result-meta {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 8px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    font-size: 11px; color: var(--text-tertiary);
+  }
+
+  .params-rail {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg); padding: 16px;
+  }
+  .param-row { margin-bottom: 14px; }
+  .param-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); font-weight: 600; margin-bottom: 6px; }
+  .param-select {
+    width: 100%; background: var(--bg-sunken); border: 1px solid var(--border-standard);
+    color: var(--text-primary); padding: 8px 10px; border-radius: var(--radius-md);
+    font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .ratio-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .ratio-opt {
+    background: var(--bg-sunken); border: 1px solid var(--border-standard);
+    padding: 8px 4px; text-align: center; border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer;
+    color: var(--text-secondary); transition: all 120ms;
+  }
+  .ratio-opt:hover { border-color: var(--border-strong); }
+  .ratio-opt.active { background: rgba(168,85,247,0.15); border-color: var(--accent-solid); color: var(--accent-solid); }
+
+  /* LIBRARY MOCKUP */
+  .library-mock {
+    background: var(--bg-sunken); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl); padding: 24px;
+  }
+  .filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chip {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border-standard);
+    padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px;
+    color: var(--text-secondary); cursor: pointer;
+  }
+  .chip.active { background: rgba(168,85,247,0.12); border-color: var(--accent-solid); color: var(--accent-solid); }
+  .gallery { columns: 4; column-gap: 10px; }
+  .gallery-card {
+    break-inside: avoid; margin-bottom: 10px; border-radius: var(--radius-md);
+    overflow: hidden; position: relative; cursor: pointer;
+    border: 1px solid transparent; transition: all 200ms;
+  }
+  .gallery-card:hover { border-color: var(--border-strong); transform: scale(1.01); }
+  .gallery-img { width: 100%; display: block; }
+  .gallery-overlay {
+    position: absolute; inset: 0; padding: 12px; display: flex; flex-direction: column; justify-content: flex-end;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%);
+    opacity: 0; transition: opacity 200ms; color: white;
+  }
+  .gallery-card:hover .gallery-overlay { opacity: 1; }
+  .gallery-prompt { font-size: 12px; line-height: 1.3; }
+  .gallery-meta { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* JOBS / STATUS */
+  .jobs-list { display: flex; flex-direction: column; gap: 8px; }
+  .job-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    padding: 12px 16px; border-radius: var(--radius-md);
+  }
+  .job-prompt { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+  .job-prompt .sub { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; font-weight: 400; }
+  .status-pill {
+    padding: 3px 10px; border-radius: var(--radius-full); font-size: 11px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .status-done { background: rgba(16,185,129,0.12); color: var(--success); }
+  .status-done::before { background: var(--success); }
+  .status-running { background: rgba(168,85,247,0.12); color: var(--accent-solid); }
+  .status-running::before { background: var(--accent-solid); animation: pulse 1.2s infinite; }
+  .status-queued { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
+  .status-queued::before { background: var(--text-tertiary); }
+  .status-failed { background: rgba(239,68,68,0.12); color: var(--error); }
+  .status-failed::before { background: var(--error); }
+  .progress { width: 80px; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent-from), var(--accent-to)); transition: width 320ms; }
+
+  /* TYPOGRAPHY SPECIMEN */
+  .type-spec { background: var(--bg-elevated); padding: 28px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); }
+  .type-row { padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
+  .type-row:last-child { border-bottom: none; }
+  .type-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 600; }
+  .cabinet { font-family: 'Cabinet Grotesk', sans-serif; }
+  .jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .mono-spec { font-family: 'JetBrains Mono', monospace; color: var(--accent-solid); }
+
+  /* CARDS / FORM */
+  .card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .card h3 { font-size: 17px; margin-bottom: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
+  .card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+  .form-field { margin-bottom: 12px; }
+  .form-label { display: block; font-size: 12px; color: var(--text-tertiary); margin-bottom: 4px; font-weight: 600; }
+  .form-input {
+    width: 100%; background: var(--bg-sunken); border: 1px solid var(--border-standard);
+    border-radius: var(--radius-md); padding: 9px 12px; color: var(--text-primary);
+    font-family: inherit; font-size: 14px; outline: none;
+  }
+  .form-input:focus { border-color: var(--accent-solid); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+  footer { text-align: center; padding: 32px 0; color: var(--text-quaternary); font-size: 12px; border-top: 1px solid var(--border-subtle); margin-top: 48px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="badge">DESIGN SYSTEM PREVIEW</div>
+    <h1>即梦创意工作站</h1>
+    <p>Jimeng SaaS — 中国创作者的 AI 图像/视频生成工作站。批量、媒体库、变体树、模板引擎。让创作像在工作室里，而不是在工具面板前。</p>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <section>
+    <h2><span class="num">01</span>字体系统</h2>
+    <div class="type-spec">
+      <div class="type-row">
+        <div class="type-label">Display / Hero — Cabinet Grotesk 800</div>
+        <div class="cabinet" style="font-size: 38px; font-weight: 800;">让创意成为日常</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Body — Plus Jakarta Sans 400</div>
+        <div class="jakarta" style="font-size: 16px;">这是一个为公众号作者、设计师、电商运营打造的 AI 创意工作站。批量生成、永久媒体库、变体迭代、模板引擎——你只需要关心创作，剩下的交给它。</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Data / Params — JetBrains Mono 500 (tabular-nums)</div>
+        <div class="mono-spec" style="font-size: 14px;">jimeng-4.5 · 16:9 · 2k · 4 variations · ¥1 credit</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLOR -->
+  <section>
+    <h2><span class="num">02</span>色彩系统（暗色基底 + 极光渐变 accent）</h2>
+    <div class="palette">
+      <div class="swatch"><div class="swatch-chip" style="background: #0a0a0c;"></div><div class="swatch-meta"><div class="name">bg-base</div><div class="hex">#0A0A0C</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #131316;"></div><div class="swatch-meta"><div class="name">bg-elevated</div><div class="hex">#131316</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #050506;"></div><div class="swatch-meta"><div class="name">bg-sunken</div><div class="hex">#050506</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);"></div><div class="swatch-meta"><div class="name">accent gradient</div><div class="hex">#8B5CF6 → #EC4899</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #a855f7;"></div><div class="swatch-meta"><div class="name">accent solid</div><div class="hex">#A855F7</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #f5f5f7;"></div><div class="swatch-meta"><div class="name">text primary</div><div class="hex">#F5F5F7</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #10b981;"></div><div class="swatch-meta"><div class="name">success</div><div class="hex">#10B981</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: #ef4444;"></div><div class="swatch-meta"><div class="name">error</div><div class="hex">#EF4444</div></div></div>
+    </div>
+  </section>
+
+  <!-- BUTTONS -->
+  <section>
+    <h2><span class="num">03</span>组件 — 按钮与状态</h2>
+    <div class="card">
+      <div class="btn-row" style="margin-bottom: 20px;">
+        <button class="btn btn-primary">✨ 开始生成</button>
+        <button class="btn btn-secondary">批量上传 CSV</button>
+        <button class="btn btn-ghost">取消</button>
+        <button class="btn btn-danger">删除</button>
+      </div>
+      <div class="btn-row">
+        <span class="status-pill status-done">已完成</span>
+        <span class="status-pill status-running">生成中</span>
+        <span class="status-pill status-queued">排队中</span>
+        <span class="status-pill status-failed">失败</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP MOCKUP -->
+  <section>
+    <h2><span class="num">04</span>应用骨架 — 生成画布</h2>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="logo"><div class="logo-dot"></div><span>JSA Studio</span></div>
+        <div class="nav-item active"><span class="nav-icon">🎯</span>仪表板</div>
+        <div class="nav-item"><span class="nav-icon">✨</span>生成</div>
+        <div class="nav-item"><span class="nav-icon">🖼️</span>媒体库</div>
+        <div class="nav-item"><span class="nav-icon">📁</span>文件夹</div>
+        <div class="nav-section-label">创作</div>
+        <div class="nav-item"><span class="nav-icon">📐</span>模板</div>
+        <div class="nav-section-label">账户</div>
+        <div class="nav-item"><span class="nav-icon">💳</span>账单</div>
+        <div class="nav-item"><span class="nav-icon">⚙️</span>设置</div>
+      </aside>
+      <main class="main">
+        <div class="page-header">
+          <div class="page-title">生成画布</div>
+          <div class="quota-pill">本月剩余 <span class="num">87</span> credits</div>
+        </div>
+        <div class="canvas">
+          <div>
+            <div class="prompt-zone">
+              <div class="prompt-label">提示词（每行一条 = 一个生成任务）</div>
+              <textarea class="prompt-input">"夜幕下的城市天际线，电影感，霓虹光，雨水倒影"
+"清晨山间雾气，水墨风格，留白"
+"未来太空站内部，硬科幻，体积光"</textarea>
+              <div class="prompt-toolbar">
+                <div class="batch-hint">批量模式 · <span class="mono">3 个提示词 × 4 变体 = 12 张</span></div>
+                <button class="btn btn-primary">✨ 生成全部</button>
+              </div>
+            </div>
+            <div class="results-zone">
+              <div class="prompt-label" style="margin-bottom: 10px;">实时结果</div>
+              <div class="results-grid">
+                <div class="result-card done"><div class="result-meta mono">16:9 · 2k · jimeng-4.5</div></div>
+                <div class="result-card generating"><div class="placeholder">生成中…</div></div>
+                <div class="result-card"><div class="placeholder">排队中</div></div>
+                <div class="result-card"><div class="placeholder">排队中</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="params-rail">
+            <div class="param-row">
+              <div class="param-label">模型</div>
+              <select class="param-select"><option>jimeng-4.5</option><option>jimeng-4.0</option><option>jimeng-5.0</option></select>
+            </div>
+            <div class="param-row">
+              <div class="param-label">分辨率</div>
+              <select class="param-select"><option>2K (默认)</option><option>1K</option><option>4K</option></select>
+            </div>
+            <div class="param-row">
+              <div class="param-label">比例</div>
+              <div class="ratio-grid">
+                <div class="ratio-opt">1:1</div>
+                <div class="ratio-opt active">16:9</div>
+                <div class="ratio-opt">9:16</div>
+                <div class="ratio-opt">4:3</div>
+                <div class="ratio-opt">3:4</div>
+                <div class="ratio-opt">3:2</div>
+                <div class="ratio-opt">2:3</div>
+                <div class="ratio-opt">21:9</div>
+              </div>
+            </div>
+            <div class="param-row">
+              <div class="param-label">智能比例</div>
+              <select class="param-select"><option>关闭</option><option>根据提示词自动</option></select>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- JOBS LIST -->
+  <section>
+    <h2><span class="num">05</span>任务队列</h2>
+    <div class="jobs-list">
+      <div class="job-row">
+        <div class="job-prompt">"夜幕下的城市天际线，电影感"<span class="sub mono">jimeng-4.5 · 16:9 · 2k · 3 分钟前</span></div>
+        <div class="progress"><div class="progress-bar" style="width: 100%;"></div></div>
+        <span class="status-pill status-done">已完成 · 4 张</span>
+      </div>
+      <div class="job-row">
+        <div class="job-prompt">"清晨山间雾气，水墨风格"<span class="sub mono">jimeng-4.5 · 16:9 · 2k · 正在生成</span></div>
+        <div class="progress"><div class="progress-bar" style="width: 64%;"></div></div>
+        <span class="status-pill status-running">生成中</span>
+      </div>
+      <div class="job-row">
+        <div class="job-prompt">"未来太空站内部，硬科幻"<span class="sub mono">jimeng-4.5 · 16:9 · 2k · 排队中</span></div>
+        <div class="progress"><div class="progress-bar" style="width: 0%;"></div></div>
+        <span class="status-pill status-queued">排队中</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section>
+    <h2><span class="num">06</span>媒体库 — 画廊式布局</h2>
+    <div class="library-mock">
+      <div class="filter-bar">
+        <div class="chip active">全部</div>
+        <div class="chip">📁 公众号封面</div>
+        <div class="chip">📁 产品图</div>
+        <div class="chip">🏷️ 水墨</div>
+        <div class="chip">🏷️ 电影感</div>
+        <div class="chip">⚡ 4K</div>
+      </div>
+      <div class="gallery">
+        <div class="gallery-card" style="background: linear-gradient(135deg, #2a1a3e, #1a0a2e); aspect-ratio: 1;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"夜幕下的城市天际线，电影感"</div>
+            <div class="gallery-meta mono">16:9 · 2k · 3天前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #1a3e2a, #0a2e1a); aspect-ratio: 0.75;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"清晨山间雾气，水墨风格"</div>
+            <div class="gallery-meta mono">9:16 · 2k · 5天前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #3e2a1a, #2e1a0a); aspect-ratio: 1.5;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"沙漠日落，金色光线"</div>
+            <div class="gallery-meta mono">3:2 · 4k · 1周前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #1a1a3e, #0a0a2e); aspect-ratio: 1;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"深海发光生物，生物荧光"</div>
+            <div class="gallery-meta mono">1:1 · 2k · 1周前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #3e1a2a, #2e0a1a); aspect-ratio: 0.67;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"玫瑰花瓣特写，露珠"</div>
+            <div class="gallery-meta mono">2:3 · 4k · 2周前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #2a3e1a, #1a2e0a); aspect-ratio: 1.78;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"森林清晨，阳光透过树叶"</div>
+            <div class="gallery-meta mono">16:9 · 2k · 2周前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #3e3e1a, #2e2e0a); aspect-ratio: 1;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"复古打字机，黄铜质感"</div>
+            <div class="gallery-meta mono">1:1 · 2k · 3周前</div>
+          </div>
+        </div>
+        <div class="gallery-card" style="background: linear-gradient(135deg, #1a2a3e, #0a1a2e); aspect-ratio: 1.33;">
+          <div class="gallery-overlay">
+            <div class="gallery-prompt">"北极光，雪山反射"</div>
+            <div class="gallery-meta mono">4:3 · 4k · 1月前</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUTH / BILLING MOCKUP -->
+  <section>
+    <h2><span class="num">07</span>认证与计费卡片</h2>
+    <div class="card-row">
+      <div class="card">
+        <h3>登录</h3>
+        <p>Linear 风格独立卡片，极光光晕在角落。</p>
+        <div class="form-field">
+          <label class="form-label">邮箱</label>
+          <input class="form-input" type="email" placeholder="you@example.com">
+        </div>
+        <div class="form-field">
+          <label class="form-label">密码</label>
+          <input class="form-input" type="password" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;">登录</button>
+      </div>
+      <div class="card">
+        <h3>本月用量</h3>
+        <p>剩余 credits、已生成张数、当前套餐。</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div style="background: var(--bg-sunken); padding: 12px; border-radius: var(--radius-md);">
+            <div class="type-label">剩余 credits</div>
+            <div class="cabinet" style="font-size: 28px; color: var(--accent-solid);">87</div>
+          </div>
+          <div style="background: var(--bg-sunken); padding: 12px; border-radius: var(--radius-md);">
+            <div class="type-label">已生成</div>
+            <div class="cabinet" style="font-size: 28px;">413</div>
+          </div>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
+          当前套餐：<strong style="color: var(--text-primary);">Pro · ¥99/月</strong>
+        </div>
+        <button class="btn btn-secondary" style="width: 100%; justify-content: center;">升级到 Team</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Jimeng SaaS Design System Preview · 生成于 2026-06-20 · 基于 DESIGN.md v1
+  </footer>
+</div>
+</body>
+</html>

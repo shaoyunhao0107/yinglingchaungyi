@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}系统健康 — 盈灵创意{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">💓 系统健康</h1>
+    <div class="page-subtitle">运维总览 · 实时检测</div>
+  </div>
+</div>
+
+<div class="grid-4 mb-xl">
+  <div class="stat-card">
+    <div class="stat-label">注册用户</div>
+    <div class="stat-value">{{ users_total }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">总任务</div>
+    <div class="stat-value">{{ jobs_total }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">媒体作品</div>
+    <div class="stat-value">{{ arts_total }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">24h 失败任务</div>
+    <div class="stat-value" style="color:{% if failed_24h > 0 %}var(--error){% else %}var(--success){% endif %}">{{ failed_24h }}</div>
+  </div>
+</div>
+
+<h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700;margin-bottom:14px">基础设施</h3>
+<div class="grid-2 mb-xl">
+  <div class="card">
+    <h3>Redis 队列</h3>
+    <p>{{ 'redis://localhost:6379/0' if not db_is_pg else 'Redis (生产)' }}</p>
+    {% if redis_ok %}
+    <div class="status-pill status-done">✓ 在线</div>
+    {% else %}
+    <div class="status-pill status-failed">✗ 不可达：{{ redis_err }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>即梦上游服务</h3>
+    <p class="mono text-xs">{{ upstream_url }}</p>
+    {% if upstream_ok %}
+    <div class="status-pill status-done">✓ 可达</div>
+    {% else %}
+    <div class="status-pill status-failed">✗ 不可达：{{ upstream_err }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>对象存储</h3>
+    <p class="mono text-xs">{{ storage_dir }}</p>
+    {% if storage_exists and storage_writable %}
+    <div class="status-pill status-done">✓ 存在且可写</div>
+    {% elif storage_exists %}
+    <div class="status-pill status-failed">✗ 只读</div>
+    {% else %}
+    <div class="status-pill status-failed">✗ 目录不存在</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>凭证池</h3>
+    <p>{{ pool.healthy }} 健康 / {{ pool.total }} 总数</p>
+    <div class="flex gap-sm">
+      <span class="status-pill status-done">{{ pool.healthy }} 健康</span>
+      {% if pool.exhausted > 0 %}<span class="status-pill status-failed">{{ pool.exhausted }} 耗尽</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<h3 style="font-size:17px;font-family:'Plus Jakarta Sans';font-weight:700;margin-bottom:14px">环境信息</h3>
+<div class="card">
+  <table>
+    <tbody>
+      <tr><td class="text-tertiary">Python</td><td class="mono">{{ python }}</td></tr>
+      <tr><td class="text-tertiary">平台</td><td class="mono">{{ platform }}</td></tr>
+      <tr><td class="text-tertiary">环境</td><td><code class="mono">{{ env }}</code></td></tr>
+      <tr><td class="text-tertiary">数据库</td><td>{% if db_is_pg %}PostgreSQL{% else %}<span class="mono">SQLite (dev)</span>{% endif %}</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
