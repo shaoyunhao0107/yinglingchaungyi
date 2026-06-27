@@ -1,23 +1,14 @@
-FROM golang:alpine AS deps
-WORKDIR /app
+# Monica Proxy — multi-stage Go build
+FROM golang:1.25-alpine AS builder
+WORKDIR /build
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
-
-FROM golang:alpine AS builder
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
-WORKDIR /app
-RUN apk add --no-cache make
-COPY --from=deps /app/go.mod /app/go.sum ./
+RUN go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    make build GOOS=${TARGETOS} GOARCH=${TARGETARCH}
+RUN CGO_ENABLED=0 go build -o monica-proxy main.go
 
-FROM gcr.io/distroless/static:nonroot AS final
-WORKDIR /data
-COPY --from=builder /app/build/monica /data/monica
-
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates
+WORKDIR /app
+COPY --from=builder /build/monica-proxy .
 EXPOSE 8080
-USER nonroot:nonroot
-CMD ["./monica"]
+CMD ["./monica-proxy"]

@@ -1,69 +1,71 @@
-# 盈灵创意 — 统一管理目录
+# 盈灵创意
 
-> 本目录聚合了盈灵创意 SaaS 的全部三个子项目，方便集中管理。
+> AI 图片/视频生成 + 通用 AI 对话 SaaS 平台 — 三合一完整项目，全本地部署。
 
-## 📂 目录结构
+## 🚀 快速开始
 
-```
-G:\AI\yinglingchaungyi├── jimeng-saas\            # 主 Web 应用（FastAPI）
-├── jimeng-api-external\    # 即梦 AI 逆向 API（Node.js）
-├── monica-proxy-master\    # 通用 AI 对话代理（Go）
-├── start.bat               # ⭐ 一键启动全部
-├── stop.bat                # ⭐ 一键停止全部
-├── status.bat              # 查看服务状态
-└── README.md               # 本文件
+```bash
+git clone https://github.com/shaoyunhao0107/yinglingchaungyi.git
+cd yinglingchaungyi
+cp .env.example .env   # 编辑填密钥
+docker compose up -d --build
 ```
 
-## 🚀 一键启动
+浏览器打开 `http://localhost:8000`
 
-**双击 `start.bat`**，会自动：
+## 📦 三大模块
 
-1. 检查 PostgreSQL 服务（自动启动）
-2. 检查 Memurai (Redis) 服务（自动启动）
-3. 开 4 个独立 cmd 窗口：
-   - `jimeng-api (5100)` — 即梦 API
-   - `monica-proxy (8080)` — AI 对话代理（带 Clash 代理）
-   - `jimeng-saas worker` — RQ 异步任务
-   - `jimeng-saas web (8000)` — Web 主应用
+| 模块 | 端口 | 语言 | 功能 |
+|------|------|------|------|
+| **jimeng-saas** | 8000 | Python (FastAPI) | 主 SaaS 平台 |
+| **jimeng-api** | 5100 | Node.js | 即梦 AI 逆向 API |
+| **monica-proxy** | 8080 | Go | AI 对话代理（23 模型） |
 
-启动完成后浏览器打开 **http://localhost:8000**
+## ✨ 功能
 
-## ⏹ 一键停止
+### 图片/视频生成
+- 即梦 7 个图片模型 + 11 个视频模型 + 盈灵新版
+- 自定义生图 API（UI 添加，OpenAI 兼容）
+- 批量生成、媒体库、文件夹/标签/搜索
 
-**双击 `stop.bat`**
+### AI 对话
+- Monica Proxy 23 个模型（GPT/Claude/Gemini/Grok）
+- 自定义大模型 API（GLM/DeepSeek/Claude 等，OpenAI + Anthropic 协议）
+- 多会话持久化、置顶、搜索、Markdown 渲染、流式响应
 
-## 📊 查看状态
+### 管理
+- 凭证池（即梦 sessionid + Monica cookie + 生图/对话 API 端点）
+- 用户系统（credits、套餐、API Key、权限隔离）
+- 审计日志、系统健康监控
 
-**双击 `status.bat`** — 看 5 个服务分别是否在跑
+## 📄 部署文档
 
-## 🔧 单独管理
-
-| 操作 | 做法 |
-|------|------|
-| 重启 web | 关闭 `jimeng-saas web` 窗口，重新跑 `start.bat`（其他窗口保持） |
-| 只重启 worker | 关闭对应窗口，在 jimeng-saas 目录手动跑 `worker.bat` |
-| 改了 monica cookie | 编辑 `monica-proxy-master\config.yaml`，重启 monica-proxy 窗口 |
-| 改了 .env | 重启 web + worker 两个窗口 |
-
-## 🌐 服务端口
-
-| 端口 | 服务 | 说明 |
+| 方式 | 文档 | 适合 |
 |------|------|------|
-| 8000 | jimeng-saas web | 主应用入口 |
-| 5100 | jimeng-api | 即梦上游 |
-| 8080 | monica-proxy | 对话代理 |
-| 5432 | PostgreSQL | 数据库 |
-| 6379 | Memurai | Redis 队列 |
+| **Docker Compose** | [DEPLOYMENT_DOCKER.md](DEPLOYMENT_DOCKER.md) | 一键部署，推荐 |
+| **Windows 物理机** | [jimeng-saas/DEPLOYMENT_WINDOWS.md](jimeng-saas/DEPLOYMENT_WINDOWS.md) | 开发环境 |
+| **Ubuntu 物理机** | [jimeng-saas/DEPLOYMENT_UBUNTU.md](jimeng-saas/DEPLOYMENT_UBUNTU.md) | 生产服务器 |
 
-## 📝 注意
+## 🗂 项目结构
 
-- `jimeng-saas\.env` 含密钥，不要分享
-- `monica-proxy-master\config.yaml` 含 Monica cookie，不要分享
-- PostgreSQL 和 Memurai 是 Windows 服务，开机自启，不需要每次手动启动
-- 改代码后需要重启对应窗口的服务才生效
+```
+yinglingchaungyi/
+├── docker-compose.yml        # 全栈编排（6 服务）
+├── .env.example              # 环境变量模板
+├── start.bat / stop.bat      # Windows 一键启动/停止
+├── jimeng-saas/              # 主应用
+├── jimeng-api-external/      # 即梦 API
+└── monica-proxy-master/      # 对话代理
+```
 
-## 🔗 上游仓库
+## 🔧 配置
 
-- 主应用：https://github.com/shaoyunhao0107/yingling-chuangyi
-- 即梦 API：https://github.com/iptag/jimeng-api
-- 对话代理：https://github.com/ycvk/monica-proxy
+所有配置通过 UI 管理（凭证池页面），无需改配置文件：
+- 即梦 sessionid → 凭证池
+- Monica cookie → 凭证池 → Monica Proxy 配置
+- 生图 API → 凭证池 → 生图 API 端点
+- 对话 API → 凭证池 → 对话 API 端点
+
+## License
+
+MIT

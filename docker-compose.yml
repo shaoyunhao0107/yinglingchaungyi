@@ -1,0 +1,145 @@
+# ============================================================
+# 盈灵创意 — Docker Compose 全栈部署（6 服务）
+# ============================================================
+#
+# 用法：
+#   1. cp .env.example .env  （编辑 .env 填密钥和管理员密码）
+#   2. docker compose up -d --build
+#   3. docker compose exec web python -c "from app.database import init_db; init_db()"
+#   4. docker compose exec web python scripts/seed_dev.py
+#   5. 浏览器打开 http://localhost:8000
+#
+# ============================================================
+
+services:
+  # ─── 数据库 ──────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: ylc-db
+    environment:
+      POSTGRES_USER: jsa
+      POSTGRES_PASSWORD: jsa_pass_2026
+      POSTGRES_DB: jimeng_saas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jsa -d jimeng_saas"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Redis（任务队列）────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ylc-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── 即梦上游 API（Node.js）──────────────────────
+  jimeng-api:
+    image: node:18-alpine
+    container_name: ylc-jimeng-api
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run build && node dist/index.js"
+    environment:
+      PORT: 5100
+    volumes:
+      - ./jimeng-api-external:/app
+      - jimeng_node_modules:/app/node_modules
+    ports:
+      - "5100:5100"
+    restart: unless-stopped
+
+  # ─── Monica Proxy（AI 对话代理，Go 编译）──────────
+  monica-proxy:
+    build:
+      context: ./monica-proxy-master
+      dockerfile: Dockerfile
+    container_name: ylc-monica-proxy
+    environment:
+      # monica-proxy 读环境变量覆盖 config.yaml
+      MONICA_COOKIE: "${MONICA_COOKIE:-}"
+      BEARER_TOKEN: "${MONICA_BEARER_TOKEN:-mytoken123}"
+      SERVER_PORT: 8080
+    volumes:
+      # 如果有 config.yaml 就挂载（可选，环境变量优先级更高）
+      - ./monica-proxy-master/config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # ─── Web 主服务（FastAPI）─────────────────────────
+  web:
+    build:
+      context: ./jimeng-saas
+      dockerfile: Dockerfile
+    image: ylc-jimeng-saas:latest
+    container_name: ylc-web
+    env_file: .env
+    environment:
+      # 覆盖 .env，用容器内部服务名
+      JSA_DB_URL: postgresql+psycopg2://jsa:jsa_pass_2026@db:5432/jimeng_saas
+      JSA_REDIS_URL: redis://redis:6379/0
+      JSA_JIMENG_UPSTREAM: http://jimeng-api:5100
+      JSA_MONICA_PROXY_BASE_URL: http://monica-proxy:8080
+    volumes:
+      - appdata:/app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jimeng-api:
+        condition: service_started
+      monica-proxy:
+        condition: service_started
+    restart: unless-stopped
+
+  # ─── Worker（异步任务消费）────────────────────────
+  worker:
+    image: ylc-jimeng-saas:latest
+    container_name: ylc-worker
+    command:
+      - "python"
+      - "-m"
+      - "rq.cli"
+      - "worker"
+      - "jimeng"
+      - "--url"
+      - "redis://redis:6379/0"
+      - "--worker-class"
+      - "rq.worker.SimpleWorker"
+    env_file: .env
+    environment:
+      JSA_DB_URL: postgresql+psycopg2://jsa:jsa_pass_2026@db:5432/jimeng_saas
+      JSA_REDIS_URL: redis://redis:6379/0
+      JSA_JIMENG_UPSTREAM: http://jimeng-api:5100
+      JSA_MONICA_PROXY_BASE_URL: http://monica-proxy:8080
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:
+  jimeng_node_modules:
